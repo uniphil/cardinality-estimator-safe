@@ -29,6 +29,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "serde_json_array"
+path = "fuzz_targets/serde_json_array.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "serde_postcard"
 path = "fuzz_targets/serde_postcard.rs"
 test = false
