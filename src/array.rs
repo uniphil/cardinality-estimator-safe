@@ -47,8 +47,10 @@ impl<'a, const P: usize, const W: usize> Array<'a, P, W> {
         } else {
             // calculate rounded up slice length for efficient look up in batches
             let rlen = 16 * self.len.div_ceil(16);
-            // SAFETY: `rlen` guaranteed to be within `self.arr` boundaries
-            contains_vectorized::<16>(unsafe { self.arr.get_unchecked(..rlen) }, h)
+            contains_vectorized::<16>(
+                self.arr.get(..rlen).expect("`rlen` guaranteed to be within `self.arr` boundaries"),
+                h,
+            )
         };
 
         if found {
@@ -79,6 +81,7 @@ impl<'a, const P: usize, const W: usize> Array<'a, P, W> {
     #[inline]
     pub(crate) fn from_vec(mut arr: Vec<u32>, len: usize) -> Array<'a, P, W> {
         let cap = arr.len();
+        assert!(cap >= len);
         let ptr = arr.as_mut_ptr();
         std::mem::forget(arr);
         // SAFETY: valid pointer from vector being used to create slice reference
