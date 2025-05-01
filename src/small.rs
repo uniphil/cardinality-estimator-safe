@@ -12,11 +12,11 @@ use crate::array::Array;
 use crate::representation::{RepresentationTrait, REPRESENTATION_SMALL};
 
 /// Mask used for extracting hashes stored in small representation (31 bits)
-const SMALL_MASK: usize = 0x0000_0000_7fff_ffff;
+const SMALL_MASK: u64 = 0x0000_0000_7fff_ffff;
 
 /// Small representation container
 #[derive(PartialEq)]
-pub(crate) struct Small<const P: usize, const W: usize>(usize);
+pub(crate) struct Small<const P: usize, const W: usize>(u64);
 
 impl<const P: usize, const W: usize> Small<P, W> {
     /// Insert encoded hash into `Small` representation.
@@ -25,7 +25,7 @@ impl<const P: usize, const W: usize> Small<P, W> {
     pub(crate) fn insert(&mut self, h: u32) -> bool {
         let h1 = self.h1();
         if h1 == 0 {
-            self.0 |= (h as usize) << 2;
+            self.0 |= u64::from(h) << 2;
             return true;
         } else if h1 == h {
             return true;
@@ -33,7 +33,7 @@ impl<const P: usize, const W: usize> Small<P, W> {
 
         let h2 = self.h2();
         if h2 == 0 {
-            self.0 |= (h as usize) << 33;
+            self.0 |= u64::from(h) << 33;
             return true;
         } else if h2 == h {
             return true;
@@ -63,7 +63,7 @@ impl<const P: usize, const W: usize> Small<P, W> {
 
 impl<const P: usize, const W: usize> RepresentationTrait for Small<P, W> {
     /// Insert encoded hash into `Small` representation.
-    fn insert_encoded_hash(&mut self, h: u32) -> usize {
+    fn insert_encoded_hash(&mut self, h: u32) -> u64 {
         if self.insert(h) {
             self.to_data()
         } else {
@@ -95,7 +95,7 @@ impl<const P: usize, const W: usize> RepresentationTrait for Small<P, W> {
 
     /// Convert `Small` representation to `data`
     #[inline]
-    fn to_data(&self) -> usize {
+    fn to_data(&self) -> u64 {
         self.0 | REPRESENTATION_SMALL
     }
 }
@@ -106,9 +106,9 @@ impl<const P: usize, const W: usize> Debug for Small<P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> From<usize> for Small<P, W> {
+impl<const P: usize, const W: usize> From<u64> for Small<P, W> {
     /// Create new instance of `Small` from given `data`
-    fn from(data: usize) -> Self {
+    fn from(data: u64) -> Self {
         Self(data)
     }
 }

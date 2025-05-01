@@ -74,7 +74,7 @@ where
         // Deserialize the tuple that was serialized by the serialize method. The first element
         // of the tuple is the data field of the estimator, and the second element is an Option
         // that contains the array data if the estimator is not small.
-        let (data, opt_vec): (usize, Option<Vec<u32>>) = Deserialize::deserialize(deserializer)?;
+        let (data, opt_vec): (u64, Option<Vec<u32>>) = Deserialize::deserialize(deserializer)?;
         Representation::try_from(data, opt_vec).map_err(|e| Error::custom(format!("{:?}", e)))
     }
 }

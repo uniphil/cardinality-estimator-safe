@@ -23,7 +23,7 @@ pub(crate) const MAX_CAPACITY: usize = 128;
 /// Bit offset of the array's length
 const LEN_OFFSET: usize = 56;
 /// Mask used for accessing heap allocated data stored at the pointer in `data` field.
-const PTR_MASK: usize = ((1 << LEN_OFFSET) - 1) & !3;
+const PTR_MASK: u64 = ((1 << LEN_OFFSET) - 1) & !3;
 
 /// Array representation container
 pub(crate) struct Array<'a, const P: usize, const W: usize> {
@@ -95,7 +95,7 @@ impl<'a, const P: usize, const W: usize> Array<'a, P, W> {
 impl<const P: usize, const W: usize> RepresentationTrait for Array<'_, P, W> {
     /// Insert encoded hash into `HyperLogLog` representation.
     #[inline]
-    fn insert_encoded_hash(&mut self, h: u32) -> usize {
+    fn insert_encoded_hash(&mut self, h: u32) -> u64 {
         if self.insert(h) {
             self.to_data()
         } else {
@@ -115,7 +115,7 @@ impl<const P: usize, const W: usize> RepresentationTrait for Array<'_, P, W> {
     /// Return memory size of `Array` representation
     #[inline]
     fn size_of(&self) -> usize {
-        size_of::<usize>() + size_of_val(self.arr)
+        size_of::<u64>() + size_of_val(self.arr)
     }
 
     /// Free memory occupied by the `Array` representation
@@ -127,8 +127,8 @@ impl<const P: usize, const W: usize> RepresentationTrait for Array<'_, P, W> {
 
     /// Convert `Array` representation to `data`
     #[inline]
-    fn to_data(&self) -> usize {
-        (self.len << LEN_OFFSET) | (PTR_MASK & self.arr.as_ptr() as usize) | REPRESENTATION_ARRAY
+    fn to_data(&self) -> u64 {
+        ((self.len as u64) << LEN_OFFSET) | (PTR_MASK & self.arr.as_ptr() as u64) | REPRESENTATION_ARRAY
     }
 }
 
@@ -144,12 +144,12 @@ impl<const P: usize, const W: usize> PartialEq for Array<'_, P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> From<usize> for Array<'_, P, W> {
+impl<const P: usize, const W: usize> From<u64> for Array<'_, P, W> {
     /// Create new instance of `Array` from given `data`
     #[inline]
-    fn from(data: usize) -> Self {
+    fn from(data: u64) -> Self {
         let ptr = (data & PTR_MASK) as *mut u32;
-        let len = data >> LEN_OFFSET;
+        let len = (data as usize) >> LEN_OFFSET;
         let cap = len.next_power_of_two();
         let arr = unsafe { slice::from_raw_parts_mut(ptr, cap) };
         Self { len, arr }

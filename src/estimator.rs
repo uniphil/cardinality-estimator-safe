@@ -15,7 +15,7 @@ where
     H: Hasher + Default,
 {
     /// Data field represents tagged pointer with its format described in lib.rs
-    pub(crate) data: usize,
+    pub(crate) data: u64,
     /// Zero-sized build hasher
     build_hasher: BuildHasherDefault<H>,
     /// Zero-sized phantom data for type `T`

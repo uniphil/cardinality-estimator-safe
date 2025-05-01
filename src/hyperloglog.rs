@@ -20,7 +20,7 @@ use std::slice;
 use crate::representation::{RepresentationTrait, REPRESENTATION_HLL};
 
 /// Mask used for accessing heap allocated data stored at the pointer in `data` field.
-const PTR_MASK: usize = !3;
+const PTR_MASK: u64 = !3;
 
 #[derive(PartialEq)]
 pub(crate) struct HyperLogLog<'a, const P: usize = 12, const W: usize = 6> {
@@ -38,7 +38,7 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
     #[inline]
     pub(crate) fn new(items: &[u32]) -> Self {
         let mut hll_data = vec![0u32; Self::HLL_SLICE_LEN];
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
+        let data = (PTR_MASK & hll_data.as_mut_ptr() as u64) | 3;
         std::mem::forget(hll_data);
         let mut hll = Self::from(data);
 
@@ -137,7 +137,7 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
 impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, W> {
     /// Insert encoded hash into `HyperLogLog` representation.
     #[inline]
-    fn insert_encoded_hash(&mut self, h: u32) -> usize {
+    fn insert_encoded_hash(&mut self, h: u32) -> u64 {
         let (idx, rank) = Self::decode_hash(h);
         self.update_rank(idx, rank);
         self.to_data()
@@ -176,15 +176,15 @@ impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, 
 
     /// Convert `HyperLogLog` representation to `data`
     #[inline]
-    fn to_data(&self) -> usize {
-        (PTR_MASK & self.data.as_ptr() as usize) | REPRESENTATION_HLL
+    fn to_data(&self) -> u64 {
+        (PTR_MASK & self.data.as_ptr() as u64) | REPRESENTATION_HLL
     }
 }
 
-impl<const P: usize, const W: usize> From<usize> for HyperLogLog<'_, P, W> {
+impl<const P: usize, const W: usize> From<u64> for HyperLogLog<'_, P, W> {
     /// Create new instance of `HyperLogLog` from given `data`
     #[inline]
-    fn from(data: usize) -> Self {
+    fn from(data: u64) -> Self {
         let ptr = (data & PTR_MASK) as *mut u32;
         // SAFETY: caller of this method must ensure that `data` contains valid slice pointer.
         let data = unsafe { slice::from_raw_parts_mut(ptr, Self::HLL_SLICE_LEN) };
@@ -196,7 +196,7 @@ impl<const P: usize, const W: usize> From<Vec<u32>> for HyperLogLog<'_, P, W> {
     /// Create new instance of `HyperLogLog` from given `hll_data`
     #[inline]
     fn from(mut hll_data: Vec<u32>) -> Self {
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
+        let data = (PTR_MASK & hll_data.as_mut_ptr() as u64) | 3;
         std::mem::forget(hll_data);
         Self::from(data)
     }
@@ -207,7 +207,7 @@ impl<const P: usize, const W: usize> Clone for HyperLogLog<'_, P, W> {
     #[inline]
     fn clone(&self) -> Self {
         let mut hll_data = self.data.to_vec();
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
+        let data = (PTR_MASK & hll_data.as_mut_ptr() as u64) | 3;
         std::mem::forget(hll_data);
         Self::from(data)
     }

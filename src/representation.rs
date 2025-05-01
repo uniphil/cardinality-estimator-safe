@@ -9,10 +9,10 @@ use crate::small::Small;
 use crate::CardinalityEstimator;
 
 /// Masks used for storing and retrieving representation type stored in lowest 2 bits of `data` field.
-pub(crate) const REPRESENTATION_MASK: usize = 0x0000_0000_0000_0003;
-pub(crate) const REPRESENTATION_SMALL: usize = 0x0000_0000_0000_0000;
-pub(crate) const REPRESENTATION_ARRAY: usize = 0x0000_0000_0000_0001;
-pub(crate) const REPRESENTATION_HLL: usize = 0x0000_0000_0000_0003;
+pub(crate) const REPRESENTATION_MASK: u64 = 0x0000_0000_0000_0003;
+pub(crate) const REPRESENTATION_SMALL: u64 = 0x0000_0000_0000_0000;
+pub(crate) const REPRESENTATION_ARRAY: u64 = 0x0000_0000_0000_0001;
+pub(crate) const REPRESENTATION_HLL: u64 = 0x0000_0000_0000_0003;
 
 /// Representation types supported by `CardinalityEstimator`
 #[repr(u8)]
@@ -27,11 +27,11 @@ pub(crate) enum Representation<'a, const P: usize, const W: usize> {
 /// Representation trait which must be implemented by all representations.
 #[enum_dispatch(Representation<P, W>)]
 pub(crate) trait RepresentationTrait {
-    fn insert_encoded_hash(&mut self, h: u32) -> usize;
+    fn insert_encoded_hash(&mut self, h: u32) -> u64;
     fn estimate(&self) -> usize;
     fn size_of(&self) -> usize;
     unsafe fn drop(&mut self);
-    fn to_data(&self) -> usize;
+    fn to_data(&self) -> u64;
     fn to_string(&self) -> String {
         format!("estimate: {}, size: {}", self.estimate(), self.size_of())
     }
@@ -59,18 +59,19 @@ impl<const P: usize, const W: usize> Representation<'_, P, W> {
     /// If `data` is not encoded as 0, 1, or 3, the function defaults to `Small` with value of 0
     /// as a safe fallback to handle unexpected conditions.
     #[inline]
-    pub(crate) fn from_data(data: usize) -> Self {
+    pub(crate) fn from_data(data: u64) -> Self {
         match data & REPRESENTATION_MASK {
             REPRESENTATION_SMALL => Representation::Small(Small::from(data)),
             REPRESENTATION_ARRAY => Representation::Array(Array::from(data)),
             REPRESENTATION_HLL => Representation::Hll(HyperLogLog::<P, W>::from(data)),
-            _ => Representation::Small(Small::from(0)),
+            _ => panic!("invalid representation"),
+            // _ => Representation::Small(Small::from(0)),
         }
     }
 
     /// Create new cardinality estimator from data and optional vector
     pub fn try_from<T, H>(
-        data: usize,
+        data: u64,
         opt_vec: Option<Vec<u32>>,
     ) -> Result<CardinalityEstimator<T, H, P, W>, RepresentationError>
     where
