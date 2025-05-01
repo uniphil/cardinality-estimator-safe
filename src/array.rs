@@ -48,7 +48,9 @@ impl<'a, const P: usize, const W: usize> Array<'a, P, W> {
             // calculate rounded up slice length for efficient look up in batches
             let rlen = 16 * self.len.div_ceil(16);
             contains_vectorized::<16>(
-                self.arr.get(..rlen).expect("`rlen` guaranteed to be within `self.arr` boundaries"),
+                self.arr
+                    .get(..rlen)
+                    .expect("`rlen` guaranteed to be within `self.arr` boundaries"),
                 h,
             )
         };

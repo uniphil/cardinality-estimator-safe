@@ -75,7 +75,10 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
         let bit_idx = (idx as usize) * W;
         let u32_idx = (bit_idx / 32) + 2;
         let bit_pos = bit_idx % 32;
-        let bits = self.data.get(u32_idx..u32_idx + 2).expect("`self.data` is always guaranteed to have these elements.");
+        let bits = self
+            .data
+            .get(u32_idx..u32_idx + 2)
+            .expect("`self.data` is always guaranteed to have these elements.");
         let bits_1 = W.min(32 - bit_pos);
         let bits_2 = W - bits_1;
         let mask_1 = (1 << bits_1) - 1;
@@ -90,7 +93,10 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
         let bit_idx = (idx as usize) * W;
         let u32_idx = (bit_idx / 32) + 2;
         let bit_pos = bit_idx % 32;
-        let bits = self.data.get_mut(u32_idx..u32_idx + 2).expect("`self.data` is always guaranteed to have these elements.");
+        let bits = self
+            .data
+            .get_mut(u32_idx..u32_idx + 2)
+            .expect("`self.data` is always guaranteed to have these elements.");
         let bits_1 = W.min(32 - bit_pos);
         let bits_2 = W - bits_1;
         let mask_1 = (1 << bits_1) - 1;
@@ -103,7 +109,10 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
         bits[1] |= (new_rank >> bits_1) & mask_2;
 
         // Update HyperLogLog's number of zero registers and harmonic sum
-        let zeros_and_sum = self.data.get_mut(0..2).expect("`self.data` is always guaranteed to have 0-th and 1-st elements.");
+        let zeros_and_sum = self
+            .data
+            .get_mut(0..2)
+            .expect("`self.data` is always guaranteed to have 0-th and 1-st elements.");
         zeros_and_sum[0] -= u32::from(old_rank == 0) & u32::from(zeros_and_sum[0] > 0);
 
         let mut sum = f32::from_bits(zeros_and_sum[1]);
@@ -137,8 +146,16 @@ impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, 
     /// Return cardinality estimate of `HyperLogLog` representation
     #[inline]
     fn estimate(&self) -> usize {
-        let zeros = *self.data.get(0).expect("`self.data` is always guaranteed to have 0-th element.");
-        let sum = f64::from(f32::from_bits(*self.data.get(1).expect("`self.data` is always guaranteed to have 1-st element.")));
+        let zeros = *self
+            .data
+            .get(0)
+            .expect("`self.data` is always guaranteed to have 0-th element.");
+        let sum = f64::from(f32::from_bits(
+            *self
+                .data
+                .get(1)
+                .expect("`self.data` is always guaranteed to have 1-st element."),
+        ));
         let estimate = alpha(Self::M) * ((Self::M * (Self::M - zeros as usize)) as f64)
             / (sum + beta_horner(f64::from(zeros), P));
         (estimate + 0.5) as usize
