@@ -148,7 +148,7 @@ impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, 
     fn estimate(&self) -> usize {
         let zeros = *self
             .data
-            .get(0)
+            .first()
             .expect("`self.data` is always guaranteed to have 0-th element.");
         let sum = f64::from(f32::from_bits(
             *self
