@@ -1,7 +1,7 @@
 #![no_main]
 
 use serde_json::Value;
-use cardinality_estimator::estimator::CardinalityEstimator;
+use cardinality_estimator_safe::estimator::CardinalityEstimator;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

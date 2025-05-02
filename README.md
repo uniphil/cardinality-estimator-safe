@@ -20,7 +20,7 @@ cardinality-estimator = "1.0.0"
 ```
 Then, import `cardinality-estimator` in your Rust program:
 ```rust
-use cardinality_estimator::CardinalityEstimator;
+use cardinality_estimator_safe::CardinalityEstimator;
 
 let mut estimator = CardinalityEstimator::<12, 6>::new();
 estimator.insert("test");
