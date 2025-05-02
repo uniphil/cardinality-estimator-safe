@@ -6,9 +6,16 @@ use std::ops::Deref;
 use wyhash::WyHash;
 
 use crate::representation::{Representation, RepresentationTrait};
+#[cfg(feature = "with_serde")]
+use serde::{Deserialize, Serialize};
 
 /// Ensure that only 64-bit architecture is being used.
 #[cfg(target_pointer_width = "64")]
+#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "with_serde",
+    serde(from = "Representation<P, W>", into = "Representation<P, W>",)
+)]
 pub struct CardinalityEstimator<T, H = WyHash, const P: usize = 12, const W: usize = 6>
 where
     T: Hash + ?Sized,
@@ -17,8 +24,10 @@ where
     /// Data field represents tagged pointer with its format described in lib.rs
     pub(crate) data: Representation<P, W>,
     /// Zero-sized build hasher
+    #[cfg_attr(feature = "with_serde", serde(skip))]
     build_hasher: BuildHasherDefault<H>,
     /// Zero-sized phantom data for type `T`
+    #[cfg_attr(feature = "with_serde", serde(skip))]
     _phantom_data: PhantomData<T>,
 }
 
@@ -36,15 +45,6 @@ where
         Self {
             // Start with empty small representation
             data: Representation::Small(Default::default()),
-            build_hasher: BuildHasherDefault::default(),
-            _phantom_data: PhantomData,
-        }
-    }
-
-    #[cfg(feature = "with_serde")]
-    pub(crate) fn from_representation(rep: Representation<P, W>) -> Self {
-        Self {
-            data: rep,
             build_hasher: BuildHasherDefault::default(),
             _phantom_data: PhantomData,
         }
@@ -177,6 +177,34 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.representation())
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<T, H, const P: usize, const W: usize> From<Representation<P, W>>
+    for CardinalityEstimator<T, H, P, W>
+where
+    T: Hash + ?Sized,
+    H: Hasher + Default,
+{
+    fn from(rep: Representation<P, W>) -> Self {
+        Self {
+            data: rep,
+            build_hasher: BuildHasherDefault::default(),
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<T, H, const P: usize, const W: usize> From<CardinalityEstimator<T, H, P, W>>
+    for Representation<P, W>
+where
+    T: Hash + ?Sized,
+    H: Hasher + Default,
+{
+    fn from(est: CardinalityEstimator<T, H, P, W>) -> Self {
+        est.data
     }
 }
 

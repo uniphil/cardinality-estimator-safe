@@ -1,76 +1,10 @@
 //! # Serde module for CardinalityEstimator
 //!
-//! This module prdataides serde-based (serialization and deserialization) features for
-//! `CardinalityEstimator`. It uses `serde`'s custom serialization and deserialization mechanisms.
-//!
-//! `CardinalityEstimator` has a usize field, `data`, and an optional `Vec<u32>` hidden behind a
-//! pointer within `data`. During serialization, these fields are converted into a tuple:
-//! `(data, Option<Vec<u32>>)`.
-//!
-//! During deserialization, the tuple is converted back into the `CardinalityEstimator` struct,
-//! handling the case where the `Vec<u32>` may be `None` (indicating a "small" estimator).
-//!
-//! This allows `CardinalityEstimator` to be easily serialized/deserialized, for storage,
-//! transmission, and reconstruction.
-//!
-//! Refer to the serde documentation for more details on custom serialization and deserialization:
-//! - [Serialization](https://serde.rs/impl-serialize.html)
-//! - [Deserialization](https://serde.rs/impl-deserialize.html)
-use std::hash::{Hash, Hasher};
-// use std::ops::Deref;
-
-use serde::ser::SerializeTuple;
-use serde::{Deserialize, Serialize};
-
-use crate::estimator::CardinalityEstimator;
-use crate::representation::Representation;
-
-impl<T, H, const P: usize, const W: usize> Serialize for CardinalityEstimator<T, H, P, W>
-where
-    T: Hash + ?Sized,
-    H: Hasher + Default,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // todo: temporary hack tuple wrap (idk how to serde)
-
-        // Begin a new serialized tuple with two elements.
-        let mut tup = serializer.serialize_tuple(1)?;
-
-        // The first element is the data field of the estimator.
-        tup.serialize_element(&self.data)?;
-
-        // Finalize the tuple.
-        tup.end()
-    }
-}
-
-impl<'de, T, H, const P: usize, const W: usize> Deserialize<'de>
-    for CardinalityEstimator<T, H, P, W>
-where
-    T: Hash + ?Sized,
-    H: Hasher + Default,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Deserialize the tuple that was serialized by the serialize method. The first element
-        // of the tuple is the data field of the estimator, and the second element is an Option
-        // that contains the array data if the estimator is not small.
-        let data: (Representation<P, W>,) = Deserialize::deserialize(deserializer)?;
-
-        // eprintln!("data: {data:?}");
-        // Representation::try_from(data).map_err(|e| Error::custom(format!("{:?}", e)))
-        Ok(CardinalityEstimator::from_representation(data.0))
-    }
-}
+//! This module now only provides basic tests for derived serializationa and deserialization.
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
+    use crate::estimator::CardinalityEstimator;
     use test_case::test_case;
 
     #[test_case(0; "empty set")]
