@@ -9,13 +9,16 @@
 use std::fmt::{Debug, Formatter};
 
 use crate::array::Array;
-use crate::representation::{RepresentationTrait, REPRESENTATION_SMALL};
+use crate::representation::{Representation, RepresentationTrait};
+#[cfg(feature = "with_serde")]
+use serde::{Deserialize, Serialize};
 
 /// Mask used for extracting hashes stored in small representation (31 bits)
 const SMALL_MASK: u64 = 0x0000_0000_7fff_ffff;
 
 /// Small representation container
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
+#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub(crate) struct Small<const P: usize, const W: usize>(u64);
 
 impl<const P: usize, const W: usize> Small<P, W> {
@@ -61,16 +64,16 @@ impl<const P: usize, const W: usize> Small<P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> RepresentationTrait for Small<P, W> {
+impl<const P: usize, const W: usize> RepresentationTrait<P, W> for Small<P, W> {
     /// Insert encoded hash into `Small` representation.
-    fn insert_encoded_hash(&mut self, h: u32) -> u64 {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>> {
         if self.insert(h) {
-            self.to_data()
+            None
         } else {
             // upgrade from `Small` to `Array` representation
             let items = self.items();
-            let arr = Array::<P, W>::from_vec(vec![items[0], items[1], h, 0], 3);
-            arr.to_data()
+            let arr = Array::<P, W>::from_vec(vec![items[0], items[1], h], 3);
+            Some(Representation::Array(arr))
         }
     }
 
@@ -87,16 +90,6 @@ impl<const P: usize, const W: usize> RepresentationTrait for Small<P, W> {
     /// Return memory size of `Small` representation
     fn size_of(&self) -> usize {
         std::mem::size_of::<Self>()
-    }
-
-    /// Free memory occupied by the `Small` representation
-    #[inline]
-    unsafe fn drop(&mut self) {}
-
-    /// Convert `Small` representation to `data`
-    #[inline]
-    fn to_data(&self) -> u64 {
-        self.0 | REPRESENTATION_SMALL
     }
 }
 

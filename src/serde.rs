@@ -1,6 +1,6 @@
 //! # Serde module for CardinalityEstimator
 //!
-//! This module provides serde-based (serialization and deserialization) features for
+//! This module prdataides serde-based (serialization and deserialization) features for
 //! `CardinalityEstimator`. It uses `serde`'s custom serialization and deserialization mechanisms.
 //!
 //! `CardinalityEstimator` has a usize field, `data`, and an optional `Vec<u32>` hidden behind a
@@ -17,9 +17,8 @@
 //! - [Serialization](https://serde.rs/impl-serialize.html)
 //! - [Deserialization](https://serde.rs/impl-deserialize.html)
 use std::hash::{Hash, Hasher};
-use std::ops::Deref;
+// use std::ops::Deref;
 
-use serde::de::Error;
 use serde::ser::SerializeTuple;
 use serde::{Deserialize, Serialize};
 
@@ -35,26 +34,13 @@ where
     where
         S: serde::Serializer,
     {
+        // todo: temporary hack tuple wrap (idk how to serde)
+
         // Begin a new serialized tuple with two elements.
-        let mut tup = serializer.serialize_tuple(2)?;
+        let mut tup = serializer.serialize_tuple(1)?;
 
         // The first element is the data field of the estimator.
         tup.serialize_element(&self.data)?;
-        match self.representation() {
-            Representation::Small(_) => {
-                // If the estimator is small, the second element is a None value. This indicates that
-                // the estimator is using the small data optimization and has no separate slice data.
-                tup.serialize_element(&None::<Vec<u32>>)?;
-            }
-            Representation::Array(arr) => {
-                // If the estimator is slice, the second element is a option containing slice data.
-                tup.serialize_element(&Some(arr.deref()))?;
-            }
-            Representation::Hll(hll) => {
-                // If the estimator is HLL, the second element is a option containing HLL data.
-                tup.serialize_element(&Some(hll.data))?;
-            }
-        }
 
         // Finalize the tuple.
         tup.end()
@@ -74,8 +60,11 @@ where
         // Deserialize the tuple that was serialized by the serialize method. The first element
         // of the tuple is the data field of the estimator, and the second element is an Option
         // that contains the array data if the estimator is not small.
-        let (data, opt_vec): (u64, Option<Vec<u32>>) = Deserialize::deserialize(deserializer)?;
-        Representation::try_from(data, opt_vec).map_err(|e| Error::custom(format!("{:?}", e)))
+        let data: (Representation<P, W>,) = Deserialize::deserialize(deserializer)?;
+
+        // eprintln!("data: {data:?}");
+        // Representation::try_from(data).map_err(|e| Error::custom(format!("{:?}", e)))
+        Ok(CardinalityEstimator::from_representation(data.0))
     }
 }
 

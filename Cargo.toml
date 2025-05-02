@@ -1,9 +1,9 @@
 [package]
 name = "cardinality-estimator"
-version = "1.0.2"
+version = "2.0.0"
 edition = "2021"
-authors = ["Alex Bocharov <bocharov.alexandr@gmail.com>"]
-description = "A crate for estimating the cardinality of distinct elements in a stream or dataset."
+authors = ["Alex Bocharov <bocharov.alexandr@gmail.com>", "phil"]
+description = "Estimate the cardinality of distinct elements in a stream or dataset with no unsafe code"
 documentation = "https://docs.rs/cardinality-estimator"
 license = "Apache-2.0"
 readme = "README.md"
@@ -13,7 +13,7 @@ categories = ["algorithms", "data-structures"]
 
 [dependencies]
 enum_dispatch = "0.3.13"
-serde = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 wyhash = "0.5.0"
 
 [dev-dependencies]
