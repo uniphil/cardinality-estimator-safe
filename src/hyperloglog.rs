@@ -14,20 +14,24 @@
 //! - data[2..]     - stores register ranks using `W` bits per each register.
 
 use std::fmt::{Debug, Formatter};
-use std::mem::{size_of, size_of_val};
-use std::slice;
+use std::mem::size_of_val;
 
-use crate::representation::{RepresentationTrait, REPRESENTATION_HLL};
+use crate::representation::{Representation, RepresentationTrait};
+#[cfg(feature = "with_serde")]
+use serde::{Deserialize, Serialize};
 
-/// Mask used for accessing heap allocated data stored at the pointer in `data` field.
-const PTR_MASK: usize = !3;
-
-#[derive(PartialEq)]
-pub(crate) struct HyperLogLog<'a, const P: usize = 12, const W: usize = 6> {
-    pub(crate) data: &'a mut [u32],
+#[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
+pub(crate) struct HyperLogLog<const P: usize = 12, const W: usize = 6> {
+    #[cfg_attr(feature = "with_serde", serde(rename = "z"))]
+    zeros: u32,
+    #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
+    harmonic_sum: f32,
+    #[cfg_attr(feature = "with_serde", serde(rename = "r"))]
+    pub(crate) registers: Vec<u32>,
 }
 
-impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
+impl<const P: usize, const W: usize> HyperLogLog<P, W> {
     /// Number of HyperLogLog registers
     const M: usize = 1 << P;
     /// HyperLogLog representation `u32` slice length based on #registers, stored zero registers, harmonic sum, and
@@ -37,16 +41,17 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
     /// Create new instance of `HyperLogLog` representation from items
     #[inline]
     pub(crate) fn new(items: &[u32]) -> Self {
-        let mut hll_data = vec![0u32; Self::HLL_SLICE_LEN];
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
-        std::mem::forget(hll_data);
-        let mut hll = Self::from(data);
-
-        hll.data[0] = Self::M as u32;
-        hll.data[1] = (Self::M as f32).to_bits();
+        // TODO: this is wrong, need to actually compute things
+        let mut hll = Self {
+            zeros: Self::M as u32,
+            harmonic_sum: Self::M as f32,
+            registers: vec![0; Self::HLL_SLICE_LEN],
+        };
 
         for &h in items.iter() {
-            hll.insert_encoded_hash(h);
+            if hll.insert_encoded_hash(h).is_some() {
+                panic!("inserting into hll rep must yield none");
+            };
         }
 
         hll
@@ -73,10 +78,12 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
     #[inline]
     fn get_register(&self, idx: u32) -> u32 {
         let bit_idx = (idx as usize) * W;
-        let u32_idx = (bit_idx / 32) + 2;
+        let u32_idx = bit_idx / 32;
         let bit_pos = bit_idx % 32;
-        // SAFETY: `self.data` is always guaranteed to have these elements.
-        let bits = unsafe { self.data.get_unchecked(u32_idx..u32_idx + 2) };
+        let bits = self
+            .registers
+            .get(u32_idx..u32_idx + 2)
+            .expect("get_register: `self.registers` is always guaranteed to have these elements.");
         let bits_1 = W.min(32 - bit_pos);
         let bits_2 = W - bits_1;
         let mask_1 = (1 << bits_1) - 1;
@@ -89,10 +96,12 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
     #[inline]
     fn set_register(&mut self, idx: u32, old_rank: u32, new_rank: u32) {
         let bit_idx = (idx as usize) * W;
-        let u32_idx = (bit_idx / 32) + 2;
+        let u32_idx = bit_idx / 32;
         let bit_pos = bit_idx % 32;
-        // SAFETY: `self.data` is always guaranteed to have these elements.
-        let bits = unsafe { self.data.get_unchecked_mut(u32_idx..u32_idx + 2) };
+        let bits = self
+            .registers
+            .get_mut(u32_idx..u32_idx + 2)
+            .expect("set_register: `self.registers` is always guaranteed to have these elements.");
         let bits_1 = W.min(32 - bit_pos);
         let bits_2 = W - bits_1;
         let mask_1 = (1 << bits_1) - 1;
@@ -105,14 +114,10 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
         bits[1] |= (new_rank >> bits_1) & mask_2;
 
         // Update HyperLogLog's number of zero registers and harmonic sum
-        // SAFETY: `self.data` is always guaranteed to have 0-th and 1-st elements.
-        let zeros_and_sum = unsafe { self.data.get_unchecked_mut(0..2) };
-        zeros_and_sum[0] -= u32::from(old_rank == 0) & u32::from(zeros_and_sum[0] > 0);
 
-        let mut sum = f32::from_bits(zeros_and_sum[1]);
-        sum -= 1.0 / ((1u64 << u64::from(old_rank)) as f32);
-        sum += 1.0 / ((1u64 << u64::from(new_rank)) as f32);
-        zeros_and_sum[1] = sum.to_bits();
+        self.zeros -= u32::from(old_rank == 0) & u32::from(self.zeros > 0);
+        self.harmonic_sum -= 1.0 / ((1u64 << u64::from(old_rank)) as f32);
+        self.harmonic_sum += 1.0 / ((1u64 << u64::from(new_rank)) as f32);
     }
 
     /// Merge two `HyperLogLog` representations.
@@ -128,21 +133,20 @@ impl<const P: usize, const W: usize> HyperLogLog<'_, P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, W> {
+impl<const P: usize, const W: usize> RepresentationTrait<P, W> for HyperLogLog<P, W> {
     /// Insert encoded hash into `HyperLogLog` representation.
     #[inline]
-    fn insert_encoded_hash(&mut self, h: u32) -> usize {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>> {
         let (idx, rank) = Self::decode_hash(h);
         self.update_rank(idx, rank);
-        self.to_data()
+        None
     }
 
     /// Return cardinality estimate of `HyperLogLog` representation
     #[inline]
     fn estimate(&self) -> usize {
-        // SAFETY: `self.data` is always guaranteed to have 0-th and 1-st elements.
-        let zeros = unsafe { *self.data.get_unchecked(0) };
-        let sum = f64::from(f32::from_bits(unsafe { *self.data.get_unchecked(1) }));
+        let zeros = self.zeros;
+        let sum = f64::from(self.harmonic_sum);
         let estimate = alpha(Self::M) * ((Self::M * (Self::M - zeros as usize)) as f64)
             / (sum + beta_horner(f64::from(zeros), P));
         (estimate + 0.5) as usize
@@ -151,56 +155,19 @@ impl<const P: usize, const W: usize> RepresentationTrait for HyperLogLog<'_, P, 
     /// Return memory size of `HyperLogLog`
     #[inline]
     fn size_of(&self) -> usize {
-        size_of::<usize>() + size_of_val(self.data)
-    }
-
-    /// Free memory occupied by the `HyperLogLog` representation
-    /// SAFETY: caller of this method must ensure that `self.data` holds valid slice elements.
-    #[inline]
-    unsafe fn drop(&mut self) {
-        drop(Box::from_raw(self.data));
-    }
-
-    /// Convert `HyperLogLog` representation to `data`
-    #[inline]
-    fn to_data(&self) -> usize {
-        (PTR_MASK & self.data.as_ptr() as usize) | REPRESENTATION_HLL
+        size_of_val(self)
     }
 }
 
-impl<const P: usize, const W: usize> From<usize> for HyperLogLog<'_, P, W> {
-    /// Create new instance of `HyperLogLog` from given `data`
-    #[inline]
-    fn from(data: usize) -> Self {
-        let ptr = (data & PTR_MASK) as *mut u32;
-        // SAFETY: caller of this method must ensure that `data` contains valid slice pointer.
-        let data = unsafe { slice::from_raw_parts_mut(ptr, Self::HLL_SLICE_LEN) };
-        Self { data }
-    }
-}
-
-impl<const P: usize, const W: usize> From<Vec<u32>> for HyperLogLog<'_, P, W> {
+impl<const P: usize, const W: usize> From<Vec<u32>> for HyperLogLog<P, W> {
     /// Create new instance of `HyperLogLog` from given `hll_data`
     #[inline]
-    fn from(mut hll_data: Vec<u32>) -> Self {
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
-        std::mem::forget(hll_data);
-        Self::from(data)
+    fn from(hll_data: Vec<u32>) -> Self {
+        Self::new(&hll_data)
     }
 }
 
-impl<const P: usize, const W: usize> Clone for HyperLogLog<'_, P, W> {
-    /// Clone `HyperLogLog` representation
-    #[inline]
-    fn clone(&self) -> Self {
-        let mut hll_data = self.data.to_vec();
-        let data = (PTR_MASK & hll_data.as_mut_ptr() as usize) | 3;
-        std::mem::forget(hll_data);
-        Self::from(data)
-    }
-}
-
-impl<const P: usize, const W: usize> Debug for HyperLogLog<'_, P, W> {
+impl<const P: usize, const W: usize> Debug for HyperLogLog<P, W> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.to_string())
     }
@@ -406,6 +373,6 @@ mod tests {
 
     #[test]
     fn hyerloglog_size() {
-        assert_eq!(std::mem::size_of::<HyperLogLog<0, 0>>(), 16);
+        assert_eq!(std::mem::size_of::<HyperLogLog<0, 0>>(), 32);
     }
 }

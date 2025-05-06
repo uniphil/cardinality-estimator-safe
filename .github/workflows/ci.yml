@@ -18,6 +18,9 @@ jobs:
       - name: Run cargo check
         run: cargo check
 
+      - name: Run cargo check with serde
+        run: cargo check --features with_serde
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -31,6 +34,9 @@ jobs:
           toolchain: stable
 
       - name: Run cargo test
+        run: cargo test
+
+      - name: Run cargo test with serde
         run: cargo test --features with_serde
 
   lints:
@@ -50,4 +56,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Run cargo clippy with serde
         run: cargo clippy --features with_serde -- -D warnings

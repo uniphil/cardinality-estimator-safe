@@ -4,6 +4,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 use std::hash::{BuildHasherDefault, Hash};
 
 use cardinality_estimator::CardinalityEstimator;
+use cardinality_estimator_safe::CardinalityEstimator as CardinalityEstimatorSafe;
 use criterion::measurement::WallTime;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, Throughput,
@@ -44,10 +45,11 @@ fn benchmark(c: &mut Criterion) {
     for &cardinality in &cardinalities {
         group.throughput(Throughput::Elements(cardinality.max(1) as u64));
         bench_insert::<CardinalityEstimatorMut>(&mut group, cardinality);
-        bench_insert::<AmadeusStreamingEstimator>(&mut group, cardinality);
-        bench_insert::<ProbabilisticCollections>(&mut group, cardinality);
-        bench_insert::<HyperLogLog>(&mut group, cardinality);
-        bench_insert::<HyperLogLogPlus>(&mut group, cardinality);
+        bench_insert::<CardinalityEstimatorSafeMut>(&mut group, cardinality);
+        // bench_insert::<AmadeusStreamingEstimator>(&mut group, cardinality);
+        // bench_insert::<ProbabilisticCollections>(&mut group, cardinality);
+        // bench_insert::<HyperLogLog>(&mut group, cardinality);
+        // bench_insert::<HyperLogLogPlus>(&mut group, cardinality);
     }
     group.finish();
 
@@ -55,10 +57,11 @@ fn benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
     for &cardinality in &cardinalities {
         bench_estimate::<CardinalityEstimatorMut>(&mut group, cardinality);
-        bench_estimate::<AmadeusStreamingEstimator>(&mut group, cardinality);
-        bench_estimate::<ProbabilisticCollections>(&mut group, cardinality);
-        bench_estimate::<HyperLogLog>(&mut group, cardinality);
-        bench_estimate::<HyperLogLogPlus>(&mut group, cardinality);
+        bench_estimate::<CardinalityEstimatorSafeMut>(&mut group, cardinality);
+        // bench_estimate::<AmadeusStreamingEstimator>(&mut group, cardinality);
+        // bench_estimate::<ProbabilisticCollections>(&mut group, cardinality);
+        // bench_estimate::<HyperLogLog>(&mut group, cardinality);
+        // bench_estimate::<HyperLogLogPlus>(&mut group, cardinality);
     }
     group.finish();
 
@@ -67,10 +70,13 @@ fn benchmark(c: &mut Criterion) {
         .map(|&cardinality| StatRecord {
             cardinality,
             cardinality_estimator: measure_allocations::<CardinalityEstimatorMut>(cardinality),
-            amadeus_streaming: measure_allocations::<AmadeusStreamingEstimator>(cardinality),
-            probabilistic_collections: measure_allocations::<ProbabilisticCollections>(cardinality),
-            hyperloglog: measure_allocations::<HyperLogLog>(cardinality),
-            hyperloglogplus: measure_allocations::<HyperLogLogPlus>(cardinality),
+            cardinality_estimator_safe: measure_allocations::<CardinalityEstimatorSafeMut>(
+                cardinality,
+            ),
+            // amadeus_streaming: measure_allocations::<AmadeusStreamingEstimator>(cardinality),
+            // probabilistic_collections: measure_allocations::<ProbabilisticCollections>(cardinality),
+            // hyperloglog: measure_allocations::<HyperLogLog>(cardinality),
+            // hyperloglogplus: measure_allocations::<HyperLogLogPlus>(cardinality),
         })
         .collect();
 
@@ -86,10 +92,11 @@ fn benchmark(c: &mut Criterion) {
         .map(|&cardinality| StatRecord {
             cardinality,
             cardinality_estimator: measure_error::<CardinalityEstimatorMut>(cardinality),
-            amadeus_streaming: measure_error::<AmadeusStreamingEstimator>(cardinality),
-            probabilistic_collections: measure_error::<ProbabilisticCollections>(cardinality),
-            hyperloglog: measure_error::<HyperLogLog>(cardinality),
-            hyperloglogplus: measure_error::<HyperLogLogPlus>(cardinality),
+            cardinality_estimator_safe: measure_error::<CardinalityEstimatorSafeMut>(cardinality),
+            // amadeus_streaming: measure_error::<AmadeusStreamingEstimator>(cardinality),
+            // probabilistic_collections: measure_error::<ProbabilisticCollections>(cardinality),
+            // hyperloglog: measure_error::<HyperLogLog>(cardinality),
+            // hyperloglogplus: measure_error::<HyperLogLogPlus>(cardinality),
         })
         .collect();
 
@@ -189,10 +196,11 @@ fn measure_error<E: CardinalityEstimatorTrait<usize>>(cardinality: usize) -> Str
 struct StatRecord {
     cardinality: usize,
     cardinality_estimator: String,
-    amadeus_streaming: String,
-    probabilistic_collections: String,
-    hyperloglog: String,
-    hyperloglogplus: String,
+    cardinality_estimator_safe: String,
+    // amadeus_streaming: String,
+    // probabilistic_collections: String,
+    // hyperloglog: String,
+    // hyperloglogplus: String,
 }
 
 struct CardinalityEstimatorMut(CardinalityEstimator<usize>);
@@ -216,6 +224,30 @@ impl CardinalityEstimatorTrait<usize> for CardinalityEstimatorMut {
 
     fn name() -> String {
         "cardinality-estimator".to_string()
+    }
+}
+
+struct CardinalityEstimatorSafeMut(CardinalityEstimatorSafe<usize>);
+
+impl CardinalityEstimatorTrait<usize> for CardinalityEstimatorSafeMut {
+    fn new() -> Self {
+        Self(CardinalityEstimatorSafe::new())
+    }
+
+    fn insert(&mut self, item: &usize) {
+        self.0.insert(item);
+    }
+
+    fn estimate(&mut self) -> usize {
+        self.0.estimate()
+    }
+
+    fn merge(&mut self, rhs: &Self) {
+        self.0.merge(&rhs.0);
+    }
+
+    fn name() -> String {
+        "cardinality-estimator-safe".to_string()
     }
 }
 

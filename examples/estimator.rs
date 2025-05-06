@@ -1,4 +1,4 @@
-use cardinality_estimator::CardinalityEstimator;
+use cardinality_estimator_safe::CardinalityEstimator;
 
 fn main() {
     let mut estimator1 = CardinalityEstimator::<usize>::new();

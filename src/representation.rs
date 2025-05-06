@@ -1,105 +1,47 @@
-use std::hash::{Hash, Hasher};
-
 use enum_dispatch::enum_dispatch;
 
-use crate::array::{Array, MAX_CAPACITY};
+use crate::array::Array;
 use crate::hyperloglog::HyperLogLog;
-use crate::representation::RepresentationError::*;
 use crate::small::Small;
-use crate::CardinalityEstimator;
-
-/// Masks used for storing and retrieving representation type stored in lowest 2 bits of `data` field.
-pub(crate) const REPRESENTATION_MASK: usize = 0x0000_0000_0000_0003;
-pub(crate) const REPRESENTATION_SMALL: usize = 0x0000_0000_0000_0000;
-pub(crate) const REPRESENTATION_ARRAY: usize = 0x0000_0000_0000_0001;
-pub(crate) const REPRESENTATION_HLL: usize = 0x0000_0000_0000_0003;
+#[cfg(feature = "with_serde")]
+use serde::{Deserialize, Serialize};
 
 /// Representation types supported by `CardinalityEstimator`
 #[repr(u8)]
 #[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[enum_dispatch]
-pub(crate) enum Representation<'a, const P: usize, const W: usize> {
+pub(crate) enum Representation<const P: usize, const W: usize> {
+    #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
     Small(Small<P, W>),
-    Array(Array<'a, P, W>),
-    Hll(HyperLogLog<'a, P, W>),
+    #[cfg_attr(feature = "with_serde", serde(rename = "a"))]
+    Array(Array<P, W>),
+    #[cfg_attr(feature = "with_serde", serde(rename = "h"))]
+    Hll(HyperLogLog<P, W>),
 }
 
 /// Representation trait which must be implemented by all representations.
 #[enum_dispatch(Representation<P, W>)]
-pub(crate) trait RepresentationTrait {
-    fn insert_encoded_hash(&mut self, h: u32) -> usize;
+pub(crate) trait RepresentationTrait<const P: usize, const W: usize> {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>>;
     fn estimate(&self) -> usize;
     fn size_of(&self) -> usize;
-    unsafe fn drop(&mut self);
-    fn to_data(&self) -> usize;
     fn to_string(&self) -> String {
-        format!("estimate: {}, size: {}", self.estimate(), self.size_of())
+        format!("estimate: {}", self.estimate())
     }
 }
 
-/// Representation error
-#[derive(Debug)]
-pub enum RepresentationError {
-    InvalidRepresentation,
-    SmallRepresentationInvalid,
-    ArrayRepresentationInvalid,
-    HllRepresentationInvalid,
-}
-
-impl<const P: usize, const W: usize> Representation<'_, P, W> {
-    /// Returns the representation type of `CardinalityEstimator`.
-    ///
-    /// This method extracts the representation based on the lowest 2 bits of `data`.
-    ///
-    /// Valid encodings:
-    /// - `0` for `Small` representation
-    /// - `1` for `Array` representation
-    /// - `3` for `HLL` representation
-    ///
-    /// If `data` is not encoded as 0, 1, or 3, the function defaults to `Small` with value of 0
-    /// as a safe fallback to handle unexpected conditions.
-    #[inline]
-    pub(crate) fn from_data(data: usize) -> Self {
-        match data & REPRESENTATION_MASK {
-            REPRESENTATION_SMALL => Representation::Small(Small::from(data)),
-            REPRESENTATION_ARRAY => Representation::Array(Array::from(data)),
-            REPRESENTATION_HLL => Representation::Hll(HyperLogLog::<P, W>::from(data)),
-            _ => Representation::Small(Small::from(0)),
+impl<const P: usize, const W: usize> Representation<P, W> {
+    pub fn iec(&mut self, h: u32) {
+        if let Some(mut upgraded) = self.insert_encoded_hash(h) {
+            std::mem::swap(self, &mut upgraded)
         }
     }
+}
 
-    /// Create new cardinality estimator from data and optional vector
-    pub fn try_from<T, H>(
-        data: usize,
-        opt_vec: Option<Vec<u32>>,
-    ) -> Result<CardinalityEstimator<T, H, P, W>, RepresentationError>
-    where
-        T: Hash + ?Sized,
-        H: Hasher + Default,
-    {
-        let mut estimator = CardinalityEstimator::<T, H, P, W>::new();
-        estimator.data = match data & REPRESENTATION_MASK {
-            REPRESENTATION_SMALL if opt_vec.is_some() => return Err(SmallRepresentationInvalid),
-            REPRESENTATION_SMALL => Small::<P, W>::from(data).to_data(),
-            REPRESENTATION_ARRAY => {
-                let vec = opt_vec.ok_or(ArrayRepresentationInvalid)?;
-                let len = vec.len();
-                if len <= 2 || len > MAX_CAPACITY {
-                    return Err(ArrayRepresentationInvalid);
-                }
-                Array::<P, W>::from_vec(vec, len).to_data()
-            }
-            REPRESENTATION_HLL => {
-                let vec = opt_vec.ok_or(HllRepresentationInvalid)?;
-                if vec.len() != HyperLogLog::<P, W>::HLL_SLICE_LEN {
-                    return Err(HllRepresentationInvalid);
-                }
-                HyperLogLog::<P, W>::from(vec).to_data()
-            }
-            _ => return Err(InvalidRepresentation),
-        };
-
-        Ok(estimator)
+impl<const P: usize, const W: usize> Default for Representation<P, W> {
+    fn default() -> Self {
+        Representation::Small(Default::default())
     }
 }
 
@@ -109,6 +51,6 @@ mod tests {
 
     #[test]
     fn small_size() {
-        assert_eq!(std::mem::size_of::<Representation<0, 0>>(), 32);
+        assert_eq!(std::mem::size_of::<Representation<0, 0>>(), 40);
     }
 }
