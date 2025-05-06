@@ -1,7 +1,7 @@
 #[cfg(feature = "with_serde")]
 fn main() {
     let mut estimator =
-        cardinality_estimator::CardinalityEstimator::<usize, wyhash::WyHash, 8, 5>::new();
+        cardinality_estimator_safe::CardinalityEstimator::<usize, wyhash::WyHash, 8, 5>::new();
 
     println!(
         "serialized empty estimator (small): {}",
