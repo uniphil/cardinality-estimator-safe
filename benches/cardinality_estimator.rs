@@ -4,7 +4,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 use std::hash::{BuildHasherDefault, Hash};
 
 use cardinality_estimator::CardinalityEstimator;
-use cardinality_estimator_safe::{CardinalityEstimator as CardinalityEstimatorSafe};
+use cardinality_estimator_safe::CardinalityEstimator as CardinalityEstimatorSafe;
 use criterion::measurement::WallTime;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, Throughput,
@@ -70,7 +70,9 @@ fn benchmark(c: &mut Criterion) {
         .map(|&cardinality| StatRecord {
             cardinality,
             cardinality_estimator: measure_allocations::<CardinalityEstimatorMut>(cardinality),
-            cardinality_estimator_safe: measure_allocations::<CardinalityEstimatorSafeMut>(cardinality),
+            cardinality_estimator_safe: measure_allocations::<CardinalityEstimatorSafeMut>(
+                cardinality,
+            ),
             // amadeus_streaming: measure_allocations::<AmadeusStreamingEstimator>(cardinality),
             // probabilistic_collections: measure_allocations::<ProbabilisticCollections>(cardinality),
             // hyperloglog: measure_allocations::<HyperLogLog>(cardinality),
