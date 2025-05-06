@@ -46,7 +46,9 @@ The number of zero registers and registers' harmonic sum are stored and updated 
 The cardinality-estimator-safe achieves high accuracy by using precise counting for small cardinality ranges and HyperLogLog++ with LogLog-Beta bias correction for larger ranges.
 This provides expected error rates as low as 0.02% for large cardinalities.
 
-## Benchmarks (for Cloudflare's unsafe version, not representative of this fork)
+## Benchmarks
+
+Benchmarks are added to directly compare Cloudflare's `cardinality-estimator` with `cardinality-estimator-safe`. They are included beside Cloudflare's original benchmarks for context.
 
 To run benchmarks you first need to install `cargo-criterion` binary:
 ```shell
@@ -74,6 +76,9 @@ Benchmarks presented below are executed on Linux laptop with `13th Gen Intel(R) 
 
 ### Memory usage
 ![Cardinality Estimators Memory Usage](benches/memory_bytes.png)
+
+#### vs. cardinality-estimator-safe
+![Cardinality Estimators Memory Usage](benches/memory_bytes_safe.png)
 
 Table below compares memory usage of different cardinality estimators.
 The number in each cell represents `stack memory bytes / heap memory bytes / heap memory blocks` at each measured cardinality.
@@ -110,6 +115,10 @@ Note, that `hyperloglogplus` implementation has particularly high memory usage e
 ### Insert performance
 ![Cardinality Estimators Insert Time](benches/insert_time.png)
 
+#### vs cardinality-estimator-safe
+
+![Cardinality Estimators Insert Time](benches/insert_time_safe.png)
+
 Table below represents insert time in nanoseconds per element.
 
 Our `cardinality-estimator` demonstrates the lowest insert time for most of the cardinalities.
@@ -141,6 +150,10 @@ Our `cardinality-estimator` demonstrates the lowest insert time for most of the 
 
 ### Estimate performance
 ![Cardinality Estimators Estimate Time](benches/estimate_time.png)
+
+#### vs cardinality-estimator-safe
+![Cardinality Estimators Estimate Time](benches/estimate_time_safe.png)
+
 
 Table below represents estimate time in nanoseconds per call.
 
@@ -176,6 +189,9 @@ Implementations `probabilistic-collections`, `hyperloglogplus` and `hyperloglogp
 
 ### Error rate
 ![Cardinality Estimators Error Rate](benches/error_rate.png)
+
+#### vs cardinality-estimator-safe
+![Cardinality Estimators Error Rate](benches/error_rate_safe.png)
 
 Table below represents average absolute relative error across 100 runs of estimator on random elements at given cardinality.
 
