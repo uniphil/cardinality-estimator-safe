@@ -23,8 +23,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub(crate) struct HyperLogLog<const P: usize = 12, const W: usize = 6> {
+    #[cfg_attr(feature = "with_serde", serde(rename = "z"))]
     zeros: u32,
+    #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
     harmonic_sum: f32,
+    #[cfg_attr(feature = "with_serde", serde(rename = "r"))]
     pub(crate) registers: Vec<u32>,
 }
 

@@ -12,8 +12,11 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[enum_dispatch]
 pub(crate) enum Representation<const P: usize, const W: usize> {
+    #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
     Small(Small<P, W>),
+    #[cfg_attr(feature = "with_serde", serde(rename = "a"))]
     Array(Array<P, W>),
+    #[cfg_attr(feature = "with_serde", serde(rename = "h"))]
     Hll(HyperLogLog<P, W>),
 }
 
