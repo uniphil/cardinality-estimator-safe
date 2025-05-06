@@ -60,7 +60,7 @@ def render_comparison(bench_results_path, df, operation, metric, yscale, ylim=No
 
     colors = {
         'cardinality-estimator': 'green',
-        'cardinality-estimator-safe': 'blue',
+        'cardinality-estimator-safe': 'cyan',
         'amadeus-streaming': 'blue',
         'probabilistic-collections': 'red',
         'hyperloglog': 'purple',
