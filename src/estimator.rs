@@ -9,8 +9,6 @@ use crate::representation::{Representation, RepresentationTrait};
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
 
-/// Ensure that only 64-bit architecture is being used.
-#[cfg(target_pointer_width = "64")]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "with_serde",

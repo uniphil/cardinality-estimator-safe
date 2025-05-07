@@ -1,6 +1,6 @@
 [package]
 name = "cardinality-estimator-safe"
-version = "2.1.0"
+version = "2.1.1"
 edition = "2021"
 authors = ["Alex Bocharov <bocharov.alexandr@gmail.com>", "phil"]
 description = "Estimate the cardinality of distinct elements in a stream or dataset with no unsafe code"
