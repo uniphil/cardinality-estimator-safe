@@ -1,14 +1,5 @@
 //! ## Array representation
 //! Allows to estimate medium cardinality in [3..MAX_CAPACITY] range.
-//!
-//! The `data` format of array representation:
-//! - 0..1 bits     - store representation type (bits are set to `01`)
-//! - 2..55 bits    - store pointer to `u32` slice (on `x86_64` systems only 48-bits are needed).
-//! - 56..63 bits   - store number of items `N` stored in array
-//!
-//! Slice encoding:
-//! - data[0..N]    - store `N` encoded hashes
-//! - data[N..]     - store zeros used for future hashes
 
 use std::fmt::{Debug, Formatter};
 use std::mem::size_of_val;
@@ -31,20 +22,26 @@ impl<const P: usize, const W: usize> Array<P, W> {
     /// Returns true on success, false otherwise.
     #[inline]
     pub(crate) fn insert(&mut self, h: u32) -> bool {
-        if self.0.contains(&h) {
-            return true;
-        }
-        if self.0.len() < MAX_CAPACITY {
+        if {
+            let mut res = false;
+            for x in &self.0 {
+                res |= *x == h
+            }
+            res
+        } {
+            true
+        } else if self.0.len() < MAX_CAPACITY {
             self.0.push(h);
-            return true;
+            true
+        } else {
+            false
         }
-        false
     }
 
     /// Create new instance of `Array` representation from vector
     #[inline]
-    pub(crate) fn from_vec(arr: Vec<u32>, _len: usize) -> Array<P, W> {
-        Self(arr)
+    pub(crate) fn from_small(a: u32, b: u32, c: u32) -> Array<P, W> {
+        Self(vec![a, b, c])
     }
 }
 
