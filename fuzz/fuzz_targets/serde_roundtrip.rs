@@ -1,21 +1,15 @@
 #![no_main]
 
-use arbitrary::Arbitrary;
 use cardinality_estimator::estimator::CardinalityEstimator;
 use libfuzzer_sys::fuzz_target;
+use postcard::{to_allocvec, from_bytes};
 
-#[derive(Arbitrary, Hash, PartialEq, Debug)]
-struct Datum(usize);
-
-#[derive(Arbitrary, Debug)]
-struct Data(Vec<Datum>);
-
-fuzz_target!(|data: Data| {
-    let mut estimator = CardinalityEstimator::<Datum>::new();
-    for d in &data.0 {
+fuzz_target!(|data: &[u8]| {
+    let mut estimator = CardinalityEstimator::<u8>::new();
+    for d in data {
         estimator.insert(&d);
     }
-    let serialized = postcard::to_allocvec(&estimator).unwrap();
-    let mut roundtripped: CardinalityEstimator<Datum> = postcard::from_bytes(&serialized).unwrap();
-    roundtripped.insert(&Datum(1));
+    let serialized = to_allocvec(&estimator).unwrap();
+    let mut roundtripped: CardinalityEstimator<u8> = from_bytes(&serialized).unwrap();
+    roundtripped.insert(&1);
 });
