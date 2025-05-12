@@ -8,6 +8,7 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
+arbitrary = { version = "1", features = ["derive"] }
 cardinality-estimator = { path = "..", features = ["with_serde"] }
 libfuzzer-sys = "0.4"
 postcard = { version = "1.1.1", features = ["alloc"] }
@@ -38,6 +39,13 @@ bench = false
 [[bin]]
 name = "serde_postcard"
 path = "fuzz_targets/serde_postcard.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "serde_roundtrip"
+path = "fuzz_targets/serde_roundtrip.rs"
 test = false
 doc = false
 bench = false
