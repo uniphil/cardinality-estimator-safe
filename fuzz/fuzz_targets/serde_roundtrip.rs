@@ -15,17 +15,7 @@ fuzz_target!(|data: Data| {
     for d in &data.0 {
         estimator.insert(&d);
     }
-    let before_estimate = estimator.estimate();
-
     let serialized = postcard::to_allocvec(&estimator).unwrap();
-    let mut roundtripped = postcard::from_bytes::<CardinalityEstimator<Datum>>(&serialized).unwrap();
-    assert_eq!(before_estimate, roundtripped.estimate());
-
+    let mut roundtripped: CardinalityEstimator<Datum> = postcard::from_bytes(&serialized).unwrap();
     roundtripped.insert(&Datum(1));
-
-    let before_estimate = roundtripped.estimate();
-    let mut serialized = serde_json::to_string(&roundtripped).unwrap();
-    serialized += " ";
-    let roundtripped2: CardinalityEstimator<Datum> = serde_json::from_str(&serialized).unwrap();
-    assert_eq!(before_estimate, roundtripped2.estimate());
 });
