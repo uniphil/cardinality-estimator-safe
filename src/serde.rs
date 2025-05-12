@@ -113,7 +113,8 @@ pub mod tests {
 
         // run each case with postcard serialization as well
 
-        let postcard_serialized = postcard::to_allocvec(&original_estimator).expect("serialization failed");
+        let postcard_serialized =
+            postcard::to_allocvec(&original_estimator).expect("serialization failed");
         assert!(
             !postcard_serialized.is_empty(),
             "postcard_serialized bytes should not be empty"
