@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[enum_dispatch]
-pub(crate) enum Representation<const P: usize, const W: usize> {
+#[allow(private_interfaces)]
+pub enum Representation<const P: usize = 12, const W: usize = 6> {
     #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
     Small(Small<P, W>),
     #[cfg_attr(feature = "with_serde", serde(rename = "a"))]
