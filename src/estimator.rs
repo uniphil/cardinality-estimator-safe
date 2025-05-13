@@ -6,14 +6,7 @@ use std::ops::Deref;
 use wyhash::WyHash;
 
 use crate::representation::{Representation, RepresentationTrait};
-#[cfg(feature = "with_serde")]
-use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "with_serde",
-    serde(from = "Representation<P, W>", into = "Representation<P, W>",)
-)]
 pub struct CardinalityEstimator<
     T,
     B = BuildHasherDefault<WyHash>,
@@ -26,10 +19,8 @@ pub struct CardinalityEstimator<
     /// Data field represents tagged pointer with its format described in lib.rs
     pub(crate) data: Representation<P, W>,
     /// Zero-sized build hasher
-    #[cfg_attr(feature = "with_serde", serde(skip))]
     build_hasher: B,
     /// Zero-sized phantom data for type `T`
-    #[cfg_attr(feature = "with_serde", serde(skip))]
     _phantom_data: PhantomData<T>,
 }
 
@@ -47,6 +38,21 @@ where
         Self {
             // Start with empty small representation
             data: Representation::Small(Default::default()),
+            build_hasher: Default::default(),
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<T, B, const P: usize, const W: usize> From<Representation<P, W>>
+    for CardinalityEstimator<T, B, P, W>
+where
+    T: Hash + ?Sized,
+    B: BuildHasher + Default,
+{
+    fn from(rep: Representation<P, W>) -> Self {
+        Self {
+            data: rep,
             build_hasher: Default::default(),
             _phantom_data: PhantomData,
         }
@@ -84,10 +90,20 @@ where
         }
     }
 
+    /// Create instance of `CardinalityEstimator` from a Representation with a BuildHasher
+    #[inline]
+    pub fn from_with_build_hasher(data: Representation<P, W>, build_hasher: B) -> Self {
+        Self {
+            data,
+            build_hasher,
+            _phantom_data: PhantomData,
+        }
+    }
+
     /// Insert a hashable item into `CardinalityEstimator`
     #[inline]
     pub fn insert(&mut self, item: &T) {
-        let hash = self.build_hasher.hash_one(&item);
+        let hash = self.build_hasher.hash_one(item);
         self.insert_hash(hash);
     }
 
@@ -140,7 +156,7 @@ where
 
     /// Returns the representation type of `CardinalityEstimator`.
     #[inline]
-    pub(crate) fn representation(&self) -> &Representation<P, W> {
+    pub fn representation(&self) -> &Representation<P, W> {
         &self.data
     }
 
@@ -202,22 +218,6 @@ where
 }
 
 #[cfg(feature = "with_serde")]
-impl<T, B, const P: usize, const W: usize> From<Representation<P, W>>
-    for CardinalityEstimator<T, B, P, W>
-where
-    T: Hash + ?Sized,
-    B: BuildHasher,
-{
-    fn from(rep: Representation<P, W>) -> Self {
-        Self {
-            data: rep,
-            build_hasher: BuildHasherDefault::default(),
-            _phantom_data: PhantomData,
-        }
-    }
-}
-
-#[cfg(feature = "with_serde")]
 impl<T, B, const P: usize, const W: usize> From<CardinalityEstimator<T, B, P, W>>
     for Representation<P, W>
 where
@@ -233,6 +233,64 @@ where
 pub mod tests {
     use super::*;
     use test_case::test_case;
+
+    #[test]
+    fn test_estimator_with_custom_build_hasher() {
+        use std::collections::hash_map::RandomState;
+        let mut estimator =
+            CardinalityEstimator::<usize, RandomState>::new_build_hasher(RandomState::new());
+        assert_eq!(estimator.estimate(), 0);
+        estimator.insert(&1);
+        assert_eq!(estimator.estimate(), 1);
+    }
+
+    #[test]
+    fn test_estimator_with_stateful_build_hasher() {
+        use sha2::{digest::crypto_common::generic_array::sequence::Split, Digest, Sha256};
+        use std::hash::Hasher;
+
+        struct Sha2Hasher(Sha256);
+        impl Hasher for Sha2Hasher {
+            fn finish(&self) -> u64 {
+                // annoying clone: Hasher's finish doesn't consume self but Digest's does
+                let finished = self.0.clone().finalize();
+                let (first8, _rest) = finished.split();
+                u64::from_le_bytes(first8.into())
+            }
+            fn write(&mut self, bytes: &[u8]) {
+                self.0.update(bytes);
+            }
+        }
+        struct Sha2BuildHasher {
+            hasher: Sha256,
+        }
+        impl Sha2BuildHasher {
+            pub fn new(prefix: &str) -> Self {
+                let hasher = Sha256::new_with_prefix(prefix);
+                Self { hasher }
+            }
+        }
+        impl BuildHasher for Sha2BuildHasher {
+            type Hasher = Sha2Hasher;
+            fn build_hasher(&self) -> Self::Hasher {
+                Sha2Hasher(self.hasher.clone())
+            }
+        }
+
+        // let build_hasher
+        let mut estimator1 = CardinalityEstimator::<usize, Sha2BuildHasher>::new_build_hasher(
+            Sha2BuildHasher::new("secret"),
+        );
+        assert_eq!(estimator1.estimate(), 0);
+        estimator1.insert(&1);
+        assert_eq!(estimator1.estimate(), 1);
+        let mut estimator2 = CardinalityEstimator::<usize, Sha2BuildHasher>::new_build_hasher(
+            Sha2BuildHasher::new("secret"),
+        );
+        estimator2.insert(&1);
+        estimator1.merge(&estimator2);
+        assert_eq!(estimator1.estimate(), 1);
+    }
 
     #[test_case(0 => "representation: Small(estimate: 0), avg_err: 0.0000")]
     #[test_case(1 => "representation: Small(estimate: 1), avg_err: 0.0000")]
