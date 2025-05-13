@@ -57,3 +57,4 @@ mod serde;
 mod small;
 
 pub use estimator::*;
+pub use representation::Representation;

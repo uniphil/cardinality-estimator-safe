@@ -41,11 +41,10 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
     /// Create new instance of `HyperLogLog` representation from items
     #[inline]
     pub(crate) fn new(items: &[u32]) -> Self {
-        // TODO: this is wrong, need to actually compute things
         let mut hll = Self {
             zeros: Self::M as u32,
             harmonic_sum: Self::M as f32,
-            registers: vec![0; Self::HLL_SLICE_LEN],
+            registers: vec![0; Self::HLL_SLICE_LEN], // TODO: reserve exact?
         };
 
         for &h in items.iter() {
