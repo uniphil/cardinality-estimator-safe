@@ -1,9 +1,47 @@
 //! # Serde module for CardinalityEstimator
 
+use crate::array::{Array, MAX_CAPACITY as ARRAY_MAX_CAPACITY};
 use crate::hyperloglog::HyperLogLog;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 use std::fmt;
+
+impl<const P: usize, const W: usize> Serialize for Array<P, W> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let els = &**self;
+        let mut a = serializer.serialize_seq(Some(els.len()))?;
+        for el in els {
+            a.serialize_element(el)?;
+        }
+        a.end()
+    }
+}
+
+impl<'de, const P: usize, const W: usize> Deserialize<'de> for Array<P, W> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let items: Vec<u32> = Deserialize::deserialize(deserializer)?;
+        let found = items.len();
+        if found < 3 {
+            return Err(de::Error::invalid_length(
+                found,
+                &"array representation with at least 3 items",
+            ));
+        }
+        if found > ARRAY_MAX_CAPACITY {
+            return Err(de::Error::invalid_length(
+                found,
+                &format!("array representation with at most {ARRAY_MAX_CAPACITY} items").as_str(),
+            ));
+        }
+        Ok(Array::from_items(items))
+    }
+}
 
 impl<const P: usize, const W: usize> Serialize for HyperLogLog<P, W> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -11,11 +49,11 @@ impl<const P: usize, const W: usize> Serialize for HyperLogLog<P, W> {
         S: serde::Serializer,
     {
         assert_eq!(Self::HLL_SLICE_LEN, self.registers.len());
-        let mut tup = serializer.serialize_seq(Some(Self::HLL_SLICE_LEN))?;
+        let mut seq = serializer.serialize_seq(Some(Self::HLL_SLICE_LEN))?;
         for r in &self.registers {
-            tup.serialize_element(r)?;
+            seq.serialize_element(r)?;
         }
-        tup.end()
+        seq.end()
     }
 }
 
@@ -35,11 +73,12 @@ impl<'de> Visitor<'de> for TupleU32Visitor {
         let Self(expected_len) = self;
         let mut registers: Self::Value = Vec::with_capacity(expected_len);
         for i in 0..expected_len {
-            let el = access.next_element()?.ok_or_else(|| {
-                de::Error::custom(format!(
-                    "could not find register at index {i} (of {expected_len} expected)"
-                ))
-            })?;
+            let Some(el) = access.next_element()? else {
+                return Err(de::Error::invalid_length(
+                    i,
+                    &format!("hyperloglog representation with length {expected_len}.").as_str(),
+                ));
+            };
             registers.push(el);
         }
         Ok(registers)

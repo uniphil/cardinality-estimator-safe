@@ -34,8 +34,8 @@ pub(crate) trait RepresentationTrait<const P: usize, const W: usize> {
 
 impl<const P: usize, const W: usize> Representation<P, W> {
     pub fn iec(&mut self, h: u32) {
-        if let Some(mut upgraded) = self.insert_encoded_hash(h) {
-            std::mem::swap(self, &mut upgraded)
+        if let Some(upgraded) = self.insert_encoded_hash(h) {
+            *self = upgraded;
         }
     }
 }
