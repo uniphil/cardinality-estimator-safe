@@ -43,13 +43,31 @@ impl<'de, const P: usize, const W: usize> Deserialize<'de> for Array<P, W> {
     }
 }
 
+/// Serialize the HyperLogLog representation
+///
+/// Serializing the zeros and harmonic_sum values is a choice that I'm rolling with
+/// for now, because:
+///
+/// - it's cheap, 8 bytes per hll
+/// - it *may* offer an optimized shortcut to extract estimates from serialized data
+/// - it leaves flexibility to avoid recomputing, if the underlying serialized storage has sufficient integrity
+///
+/// the serialied data is sequence of u32s:
+/// - 0: hll zeros
+/// - 1: harmonic_sum (f32 transmuted to u32)
+/// - 2..: registers array
 impl<const P: usize, const W: usize> Serialize for HyperLogLog<P, W> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        // shouldn't be necessary, but things have really gone wrong somewhere if not:
         assert_eq!(Self::HLL_SLICE_LEN, self.registers.len());
-        let mut seq = serializer.serialize_seq(Some(Self::HLL_SLICE_LEN))?;
+
+        let mut seq = serializer.serialize_seq(Some(Self::HLL_SLICE_LEN + 2))?;
+        seq.serialize_element(&self.zeros)?;
+        seq.serialize_element(&self.harmonic_sum.to_bits())?;
+
         for r in &self.registers {
             seq.serialize_element(r)?;
         }
@@ -81,17 +99,71 @@ impl<'de> Visitor<'de> for TupleU32Visitor {
             };
             registers.push(el);
         }
+        if let Some(remaining) = access.size_hint() {
+            if remaining > 0 {
+                return Err(de::Error::invalid_length(
+                    expected_len,
+                    &format!("hyperloglog representation with length {expected_len} (hint says {remaining} extra in sequence)").as_str(),
+                ));
+            }
+        }
         Ok(registers)
     }
 }
 
+/// Deserialize the HyperLogLog representation
+///
+/// for now, the deserializer will: recompute the values from the sketch, and assert that
+///
+/// - the number of zeros must match exactly
+/// - the harmonic sum must match within some error
+///
+/// otherwise there was likely some issue with the data in storage and it will be rejected.
+/// for now, the *stored* harmonic_sum will ultimately be used, so that the deserialized
+/// instance has the exact state of the pre-serialiezd one. it seems intuitively like this
+/// might have slightly higher accumulated floating-point error though?
+///
+/// cheaper/less safe deserialization paths may be added in the future
 impl<'de, const P: usize, const W: usize> Deserialize<'de> for HyperLogLog<P, W> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let registers = deserializer.deserialize_seq(TupleU32Visitor(Self::HLL_SLICE_LEN))?;
-        Ok(HyperLogLog::from_registers(registers))
+        let stuff = deserializer.deserialize_seq(TupleU32Visitor(Self::HLL_SLICE_LEN + 2))?;
+        let zeros = stuff[0];
+        let harmonic_sum = f32::from_bits(stuff[1]);
+        let registers = stuff.get(2..).unwrap().to_vec();
+
+        assert_eq!(registers.len(), Self::HLL_SLICE_LEN);
+        let mut hll = HyperLogLog::from_registers(registers);
+
+        if hll.zeros != zeros {
+            return Err(de::Error::invalid_value(
+                serde::de::Unexpected::Unsigned(zeros.into()),
+                &format!(
+                    "zeros to match the zeros from registers ({}) exactly",
+                    hll.zeros
+                )
+                .as_str(),
+            ));
+        }
+
+        // there is probably some nice math that could justify a minimal error threshold here
+        // but i'm lazy and we just want to catch serialization issues which are going to be
+        // really wildly wrong or not that important
+        if (hll.harmonic_sum - harmonic_sum).abs() > 0.5 {
+            return Err(de::Error::invalid_value(
+                serde::de::Unexpected::Float(harmonic_sum.into()),
+                &format!(
+                    "harmonic_sum to match computed sum from registers ({}) closely",
+                    hll.harmonic_sum
+                )
+                .as_str(),
+            ));
+        }
+
+        hll.harmonic_sum = harmonic_sum;
+        Ok(hll)
     }
 }
 
