@@ -17,17 +17,13 @@ use std::fmt::{Debug, Formatter};
 use std::mem::size_of_val;
 
 use crate::representation::{Representation, RepresentationTrait};
-#[cfg(feature = "with_serde")]
-use serde::{Deserialize, Serialize};
+// #[cfg(feature = "with_serde")]
+// use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub(crate) struct HyperLogLog<const P: usize = 12, const W: usize = 6> {
-    #[cfg_attr(feature = "with_serde", serde(rename = "z"))]
-    zeros: u32,
-    #[cfg_attr(feature = "with_serde", serde(rename = "s"))]
-    harmonic_sum: f32,
-    #[cfg_attr(feature = "with_serde", serde(rename = "r"))]
+    pub(crate) zeros: u32,
+    pub(crate) harmonic_sum: f32,
     pub(crate) registers: Vec<u32>,
 }
 
@@ -130,6 +126,23 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
             }
         }
     }
+
+    /// Merge two `HyperLogLog` representations.
+    #[inline]
+    pub(crate) fn from_registers(registers: Vec<u32>) -> Self {
+        assert_eq!(Self::HLL_SLICE_LEN, registers.len());
+        let mut lhs = Self::new(&[]);
+        let mut rhs = Self::new(&[]);
+        rhs.registers = registers;
+        for idx in 0..Self::M as u32 {
+            let lhs_rank = lhs.get_register(idx);
+            let rhs_rank = rhs.get_register(idx);
+            if rhs_rank > lhs_rank {
+                lhs.set_register(idx, lhs_rank, rhs_rank);
+            }
+        }
+        lhs
+    }
 }
 
 impl<const P: usize, const W: usize> RepresentationTrait<P, W> for HyperLogLog<P, W> {
@@ -163,6 +176,12 @@ impl<const P: usize, const W: usize> From<Vec<u32>> for HyperLogLog<P, W> {
     #[inline]
     fn from(hll_data: Vec<u32>) -> Self {
         Self::new(&hll_data)
+    }
+}
+
+impl<const P: usize, const W: usize> PartialEq for HyperLogLog<P, W> {
+    fn eq(&self, other: &Self) -> bool {
+        self.registers == other.registers
     }
 }
 
