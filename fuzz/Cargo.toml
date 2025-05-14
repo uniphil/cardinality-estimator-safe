@@ -29,8 +29,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "serde_json_array"
-path = "fuzz_targets/serde_json_array.rs"
+name = "serde_json_value"
+path = "fuzz_targets/serde_json_value.rs"
 test = false
 doc = false
 bench = false
