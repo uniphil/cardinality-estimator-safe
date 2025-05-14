@@ -1,6 +1,60 @@
 //! # Serde module for CardinalityEstimator
-//!
-//! This module now only provides basic tests for derived serializationa and deserialization.
+
+use crate::hyperloglog::HyperLogLog;
+use serde::de::{self, SeqAccess, Visitor};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
+use std::fmt;
+
+impl<const P: usize, const W: usize> Serialize for HyperLogLog<P, W> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        assert_eq!(Self::HLL_SLICE_LEN, self.registers.len());
+        let mut tup = serializer.serialize_seq(Some(Self::HLL_SLICE_LEN))?;
+        for r in &self.registers {
+            tup.serialize_element(r)?;
+        }
+        tup.end()
+    }
+}
+
+struct TupleU32Visitor(usize);
+
+impl<'de> Visitor<'de> for TupleU32Visitor {
+    type Value = Vec<u32>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a tuple of u32s")
+    }
+
+    fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let Self(expected_len) = self;
+        let mut registers: Self::Value = Vec::with_capacity(expected_len);
+        for i in 0..expected_len {
+            let el = access.next_element()?.ok_or_else(|| {
+                de::Error::custom(format!(
+                    "could not find register at index {i} (of {expected_len} expected)"
+                ))
+            })?;
+            registers.push(el);
+        }
+        Ok(registers)
+    }
+}
+
+impl<'de, const P: usize, const W: usize> Deserialize<'de> for HyperLogLog<P, W> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let registers = deserializer.deserialize_seq(TupleU32Visitor(Self::HLL_SLICE_LEN))?;
+        Ok(HyperLogLog::from_registers(registers))
+    }
+}
 
 #[cfg(test)]
 pub mod tests {

@@ -1,7 +1,7 @@
 #![no_main]
 
 use serde_json::Value;
-use cardinality_estimator_safe::estimator::CardinalityEstimator;
+use cardinality_estimator_safe::{CardinalityEstimator, Representation};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -12,7 +12,8 @@ fuzz_target!(|data: &[u8]| {
         _ => Value::Array(vec![data[0].into(),
             Value::Array(data[1..].iter().map(|n| (*n).into()).collect())]),
     };
-    if let Ok(mut estimator) = serde_json::from_value::<CardinalityEstimator<usize>>(json) {
+    if let Ok(rep) = serde_json::from_value::<Representation>(json) {
+        let mut estimator: CardinalityEstimator<usize> = rep.into();
         estimator.insert(&1);
         assert!(estimator.estimate() > 0);
     }
