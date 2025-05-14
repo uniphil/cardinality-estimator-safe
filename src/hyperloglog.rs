@@ -129,6 +129,7 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
 
     /// Merge two `HyperLogLog` representations.
     #[inline]
+    #[cfg(feature = "with_serde")]
     pub(crate) fn from_registers(registers: Vec<u32>) -> Self {
         assert_eq!(Self::HLL_SLICE_LEN, registers.len());
         let mut lhs = Self::new(&[]);
