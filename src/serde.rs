@@ -36,7 +36,7 @@ impl<'de, const P: usize, const W: usize> Deserialize<'de> for Array<P, W> {
         if found > ARRAY_MAX_CAPACITY {
             return Err(de::Error::invalid_length(
                 found,
-                &"array representation with at most {ARRAY_MAX_CAPACITY} items",
+                &format!("array representation with at most {ARRAY_MAX_CAPACITY} items").as_str(),
             ));
         }
         Ok(Array::from_items(items))
@@ -73,11 +73,12 @@ impl<'de> Visitor<'de> for TupleU32Visitor {
         let Self(expected_len) = self;
         let mut registers: Self::Value = Vec::with_capacity(expected_len);
         for i in 0..expected_len {
-            let el = access.next_element()?.ok_or_else(|| {
-                de::Error::custom(format!(
-                    "could not find register at index {i} (of {expected_len} expected)"
-                ))
-            })?;
+            let Some(el) = access.next_element()? else {
+                return Err(de::Error::invalid_length(
+                    i,
+                    &format!("hyperloglog representation with length {expected_len}.").as_str(),
+                ));
+            };
             registers.push(el);
         }
         Ok(registers)

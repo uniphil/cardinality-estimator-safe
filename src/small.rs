@@ -72,8 +72,6 @@ impl<const P: usize, const W: usize> RepresentationTrait<P, W> for Small<P, W> {
         } else {
             // upgrade from `Small` to `Array` representation
             let arr = Array::<P, W>::from_small(self.h1(), self.h2(), h);
-            // let [a, b] = self.items();
-            // let arr = Array::<P, W>::from_vec(vec![self.h1(), self.h2(), h], 3);
             Some(Representation::Array(arr))
         }
     }
