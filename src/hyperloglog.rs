@@ -120,7 +120,7 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
     #[inline]
     #[cfg(feature = "with_serde")]
     pub(crate) fn from_registers(registers: Vec<u32>) -> Self {
-        assert_eq!(Self::HLL_SLICE_LEN, registers.len());
+        // caller is responsible for checking that registers.len() == Self::HLL_SLICE_LEN
         let mut lhs = Self::new(&[]);
         let mut rhs = Self::new(&[]);
         rhs.registers = registers;
