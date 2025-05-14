@@ -1,3 +1,5 @@
+SHELL=/bin/bash -o pipefail
+
 .PHONY: test bench bench-extended fuzz-estimator fuzz-serde lint fmt clean build doc
 
 all: build

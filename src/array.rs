@@ -7,14 +7,11 @@ use std::ops::Deref;
 
 use crate::hyperloglog::HyperLogLog;
 use crate::representation::{Representation, RepresentationTrait};
-#[cfg(feature = "with_serde")]
-use serde::{Deserialize, Serialize};
 
 /// Maximum number of elements stored in array representation
 pub(crate) const MAX_CAPACITY: usize = 128;
 
 /// Array representation container
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub(crate) struct Array<const P: usize, const W: usize>(Vec<u32>, usize);
 
 impl<const P: usize, const W: usize> Array<P, W> {
@@ -25,21 +22,24 @@ impl<const P: usize, const W: usize> Array<P, W> {
         // 1. search
         let found = match self.0.len() {
             4 => contains_fixed_hopefully_vectorized::<4>(
-                self.0.as_slice().try_into().expect("vec of len 4 can become array of len 4"),
+                self.0
+                    .as_slice()
+                    .try_into()
+                    .expect("vec of len 4 can become array of len 4"),
                 h,
             ),
             8 => contains_fixed_hopefully_vectorized::<8>(
-                self.0.as_slice().try_into().expect("vec of len 4 can become array of len 4"),
+                self.0
+                    .as_slice()
+                    .try_into()
+                    .expect("vec of len 4 can become array of len 4"),
                 h,
             ),
             n => {
                 assert_eq!(n % 16, 0);
-                self.0
-                    .chunks_exact(16)
-                    .any(|chunk| contains_fixed_hopefully_vectorized::<16>(
-                        chunk.try_into().unwrap(),
-                        h,
-                    ))
+                self.0.chunks_exact(16).any(|chunk| {
+                    contains_fixed_hopefully_vectorized::<16>(chunk.try_into().unwrap(), h)
+                })
             }
         };
 
@@ -50,7 +50,7 @@ impl<const P: usize, const W: usize> Array<P, W> {
         // 2. insert new item
         let l = self.0.len();
         if self.1 > 0 {
-            self.0[l-self.1] = h;
+            self.0[l - self.1] = h;
             self.1 -= 1;
             true
         } else if l < MAX_CAPACITY {
@@ -69,6 +69,20 @@ impl<const P: usize, const W: usize> Array<P, W> {
     #[inline]
     pub(crate) fn from_small(a: u32, b: u32, c: u32) -> Array<P, W> {
         Self(vec![a, b, c, 0], 1)
+    }
+
+    /// Create a new instance from a raw vec of items (without trailing zero-padding)
+    ///
+    /// Caller is responsible for ensuring the vec lenght is >= 3 and <= MAX_CAPACITY
+    #[inline]
+    #[cfg(feature = "with_serde")]
+    pub(crate) fn from_items(mut items: Vec<u32>) -> Array<P, W> {
+        let alive = items.len();
+        let mem_size = alive.next_power_of_two(); // as if this is already in stdlib
+        let zeros = mem_size - alive;
+        items.reserve_exact(mem_size);
+        items.resize(mem_size, 0);
+        Self(items, zeros)
     }
 }
 
@@ -115,7 +129,7 @@ impl<const P: usize, const W: usize> Deref for Array<P, W> {
     type Target = [u32];
 
     fn deref(&self) -> &Self::Target {
-        &self.0.get(0..self.0.len() - self.1).expect("alkjdfl")
+        self.0.get(0..self.0.len() - self.1).expect("alkjdfl")
     }
 }
 

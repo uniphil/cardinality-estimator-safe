@@ -8,8 +8,6 @@ use std::fmt::{Debug, Formatter};
 use std::mem::size_of_val;
 
 use crate::representation::{Representation, RepresentationTrait};
-// #[cfg(feature = "with_serde")]
-// use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub(crate) struct HyperLogLog<const P: usize = 12, const W: usize = 6> {
@@ -31,7 +29,7 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
         let mut hll = Self {
             zeros: Self::M as u32,
             harmonic_sum: Self::M as f32,
-            registers: vec![0; Self::HLL_SLICE_LEN], // TODO: reserve exact?
+            registers: vec![0; Self::HLL_SLICE_LEN],
         };
 
         for &h in items.iter() {
