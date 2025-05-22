@@ -9,7 +9,7 @@
 use std::fmt::{Debug, Formatter};
 
 use crate::array::Array;
-use crate::representation::{Representation, RepresentationTrait};
+use crate::sketch::{Sketch, SketchTrait};
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
 
@@ -64,21 +64,21 @@ impl<const P: usize, const W: usize> Small<P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> RepresentationTrait<P, W> for Small<P, W> {
+impl<const P: usize, const W: usize> SketchTrait<P, W> for Small<P, W> {
     /// Insert encoded hash into `Small` representation.
-    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>> {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Sketch<P, W>> {
         if self.insert(h) {
             None
         } else {
             // upgrade from `Small` to `Array` representation
             let arr = Array::<P, W>::from_small(self.h1(), self.h2(), h);
-            Some(Representation::Array(arr))
+            Some(Sketch::Array(arr))
         }
     }
 
     /// Return cardinality estimate of `Small` representation
     #[inline]
-    fn estimate(&self) -> usize {
+    fn estimate_sketch(&self) -> usize {
         match (self.h1(), self.h2()) {
             (0, 0) => 0,
             (_, 0) => 1,

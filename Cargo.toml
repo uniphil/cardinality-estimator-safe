@@ -13,8 +13,8 @@ categories = ["algorithms", "data-structures"]
 
 [dependencies]
 enum_dispatch = "0.3.13"
+digest = { version = "0.10.7", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-wyhash = "0.5.0"
 
 [dev-dependencies]
 amadeus-streaming = "0.4.3"
@@ -31,6 +31,7 @@ sha2 = "0.10.9"
 serde_json = "1.0"
 tabled = "0.15.0"
 test-case = "3.3.1"
+wyhash = "0.5.0"
 
 [[bench]]
 name = "cardinality_estimator"
@@ -39,6 +40,7 @@ harness = false
 [features]
 default = []
 with_serde = ["serde"]
+with_digest = ["digest"]
 
 [profile.release]
 debug = 1

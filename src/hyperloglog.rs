@@ -7,7 +7,7 @@
 use std::fmt::{Debug, Formatter};
 use std::mem::size_of_val;
 
-use crate::representation::{Representation, RepresentationTrait};
+use crate::sketch::{Sketch, SketchTrait};
 
 #[derive(Clone)]
 pub(crate) struct HyperLogLog<const P: usize = 12, const W: usize = 6> {
@@ -135,10 +135,10 @@ impl<const P: usize, const W: usize> HyperLogLog<P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> RepresentationTrait<P, W> for HyperLogLog<P, W> {
+impl<const P: usize, const W: usize> SketchTrait<P, W> for HyperLogLog<P, W> {
     /// Insert encoded hash into `HyperLogLog` representation.
     #[inline]
-    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>> {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Sketch<P, W>> {
         let (idx, rank) = Self::decode_hash(h);
         self.update_rank(idx, rank);
         None
@@ -146,7 +146,7 @@ impl<const P: usize, const W: usize> RepresentationTrait<P, W> for HyperLogLog<P
 
     /// Return cardinality estimate of `HyperLogLog` representation
     #[inline]
-    fn estimate(&self) -> usize {
+    fn estimate_sketch(&self) -> usize {
         let zeros = self.zeros;
         let sum = f64::from(self.harmonic_sum);
         let estimate = alpha(Self::M) * ((Self::M * (Self::M - zeros as usize)) as f64)
