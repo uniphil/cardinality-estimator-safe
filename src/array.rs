@@ -12,6 +12,7 @@ use crate::sketch::{Sketch, SketchTrait};
 pub(crate) const MAX_CAPACITY: usize = 128;
 
 /// Array representation container
+#[derive(Clone)]
 pub(crate) struct Array<const P: usize, const W: usize>(Vec<u32>, usize);
 
 impl<const P: usize, const W: usize> Array<P, W> {

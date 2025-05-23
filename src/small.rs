@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 const SMALL_MASK: u64 = 0x0000_0000_7fff_ffff;
 
 /// Small representation container
-#[derive(PartialEq, Default)]
+#[derive(PartialEq, Clone, Default)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub(crate) struct Small<const P: usize, const W: usize>(u64);
 

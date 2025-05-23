@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// - `Array` is a sparse representation for cardinalities up to 128
 /// - `Hll` is the actual HyperLogLog sketch, used for higher cardinalities
 #[repr(u8)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[enum_dispatch]
 #[allow(private_interfaces)]
