@@ -1,27 +1,29 @@
 # cardinality-estimator-safe
+
 ![build](https://img.shields.io/github/actions/workflow/status/uniphil/cardinality-estimator-safe/ci.yml?branch=main)
 [![docs.rs](https://docs.rs/cardinality-estimator-safe/badge.svg)](https://docs.rs/cardinality-estimator-safe)
 [![crates.io](https://img.shields.io/crates/v/cardinality-estimator-safe.svg)](https://crates.io/crates/cardinality-estimator-safe)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-`cardinality-estimator-safe` is a fork of Cloudflare's `cardinality-estimator`, replacing its data representations with boring old owned data and eliminating all uses of `unsafe`. Its serialization formats are intended to be reasonable with `serde_json`, and efficient with `bincode`.
+`cardinality-estimator-safe` began as a fork of Cloudflare's `cardinality-estimator`, replacing its unsafe data representations with boring old owned standard types, to eliminate all uses of `unsafe`. Its serialization formats are intended to be reasonable with `serde_json`, and efficient with `bincode`.
 
-`cardinality-estimator-safe` estimates the number of distinct elements in a stream or dataset in an efficient manner.
-This library uses HyperLogLog++ with an optimized low memory footprint and high accuracy approach, suitable for large-scale data analysis tasks.
-
-## Overview
-`cardinality-estimator-safe` is efficient in terms of memory usage, latency, and accuracy.
+`cardinality-estimator-safe` estimates the number of distinct elements in a stream or dataset, with low memory usage, low latency, and high accuracy.
 This is achieved by leveraging a combination of unique data structure design, efficient algorithms, and HyperLogLog++ for high cardinality ranges.
+
 
 ### Compared to other crates
 
-- `cardinality-estimator` is [currently](https://github.com/cloudflare/cardinality-estimator/pull/12) vulnerable to memory safety violations due to its pervasive use of `unsafe` that appears to contain incorrect assumptions.
+- `cardinality-estimator` is [currently](https://github.com/cloudflare/cardinality-estimator/pull/12) vulnerable to memory safety violations due to its `unsafe` handling of arrays when deserializing.
 - `amadeus-streaming` writes out a huge array when serializing small cardinalities. it contains unsafe code without much documentation to justify it, though that code can be avoided by avoiding the SIMD paths.
 - `hyperloglogplus` serialization is not compact, writing out even phantom data when serializing.
 
-`cardinality-estimator-safe` is meant for serialization-heavy use-cases. it serializes to a fairly compact representation with `serde_json`, and is designed to be especially compact with binary encoders like `bincode` and `postcard`. you can see samples with `cargo run --features with_serde --example json`.
+`cardinality-estimator-safe` serializes to a fairly compact representation with `serde_json`, and is designed to be especially compact with binary encoders like `bincode` and `postcard`. you can see samples with `cargo run --features with_serde --example json`.
 
-`cardinality-estimator-safe` is generic over `BuildHasher` instead of `Hasher` like `cardinality-estimator`, so it's possible to add a salt/prefix to the hashes for some resistance against malicious estimate inflation when users control any input data.
+`cardinality-estimator-safe` moves hashing to an `Element` wrapper that you can `.insert` to a sketch. This API is more verbose, but offers a few advantages:
+
+- Easy to adapt for use with any hasher. The `with_digest` feature enables use with [any hasher from rust-crypto](https://github.com/RustCrypto/hashes), and enables the `from_digest_with_prefix` constructor for salting data where metrics might be exposed publicly and gamed.
+- `Sketch`es can be serialized, deserialized, estimated, and merged, without any coupling to the hashing configuration.
+
 
 ### Crate status
 
@@ -31,48 +33,116 @@ This is achieved by leveraging a combination of unique data structure design, ef
 - deserialization performance for hyperloglog representations is currently less than optimal, but there are easy ways to make it fast.
 - some of the code could definitely be refactored for further clarity.
 
+
 ## Getting Started
+
 To use `cardinality-estimator-safe`, add it to your `Cargo.toml` under `[dependencies]`:
+
 ```toml
 [dependencies]
-cardinality-estimator-safe = "2.1.0"
+cardinality-estimator-safe = "4.0.0"
 ```
-Then, import `cardinality-estimator-safe` in your Rust program:
-```rust
-use cardinality_estimator_safe::CardinalityEstimator;
 
-let mut estimator = CardinalityEstimator::<12, 6>::new();
-estimator.insert("test");
+Then, import `cardinality-estimator-safe` in your Rust program:
+
+```rust
+use cardinality_estimator_safe::{Sketch, Element};
+use wyhash::WyHash;
+
+let mut estimator = Sketch::<12, 6>::default();
+estimator.insert(Element::from_hasher_default::<WyHash>("test"));
 let estimate = estimator.estimate();
 
 println!("estimate = {}", estimate);
 ```
 
-Please refer to our [examples](examples) and [benchmarks](benches) in the repository for more complex scenarios.
+Note that you **must** use the same hasher configuration for all elements added to a sketch!
+
+See more in [examples](examples).
+
+
+### How to choose an `Element` initializer
+
+At the core of HyperLogLog is a sort of "proof of work" algorithm: as elements are added to the sketch, it tracks the highest number of leading zeros seen in a hashed element bit pattern (and it does this across many bucketed groups of elements). As you observe more new element hashes, you eventually see "rarer" patterns, and it turns out that you can make pretty accurate cardinality estimates based on this tracked rarity!
+
+In many cases, just pushing elements through a fast hasher works well! The example code above uses a very fast hasher called `WyHash`, which is what the original Cloudflare implementation used by default. 
+
+There is one potential weakness though: if someone can influence any elements submitted to your sketch, they could try to find out the specific rare elements needed to artificailly inflate your estimate -- the elements that happen to hash to long leading zeros.
+
+**If you just want it to work**: use the stdlib hasher
+
+```rust
+use cardinality_estimator_safe::{Sketch, Element};
+use std::hash::DefaultHasher;
+
+sketch.insert(Element::from_hasher_default::<DefaultHasher>(&thing));
+```
+
+- no extra dependencies, pretty fast
+- **unspecified hash algorithm**, so a future rust release may yield different results and incompatible sketches. if you're not **storing** the sketches, that's probably ok!
+
+**Maximum performance**: WyHash
+
+```rust
+use cardinality_estimator_safe::{Sketch, Element};
+use wyhash::WyHash;
+
+sketch.insert(Element::from_hasher_default::<WyHash>(&thing));
+```
+
+- very fast
+- saved sketches will remain compatible (can be merged or inserted)
+
+**Resistant to crafted inputs**: Cryptographic hash + secret prefix
+
+- enable the `with_digest` feature to use [hashes from rust-crypto](https://github.com/RustCrypto/hashes)
+
+```rust
+use cardinality_estimator_safe::{Sketch, Element};
+use sha2::Sha256;
+
+sketch.insert(Element::from_digest_with_prefix::<Sha256>(
+  YOUR_SECRET_SALT,
+  &thing,
+));
+```
+
+- resistant to offline attacks that would inflate estimates with crafted inputs
+- saved sketches will remain compatible as long as the secret/salt is never updated
+- rotating the secret invalidates future inserts and merges to existing sketches
+
 
 ## Low memory footprint
+
 The `cardinality-estimator` achieves low memory footprint by leveraging an efficient data storage format.
 The data is stored in three different representations - `Small`, `Array`, and `HyperLogLog` - depending on the cardinality range.
 For instance, for a cardinality of 0 to 2, only **8 bytes** of stack memory and 0 bytes of heap memory are used.
 
+
 ## Low latency
+
 The crate offers low latency by using auto-vectorization for slice operations via compiler hints to use SIMD instructions.
 The number of zero registers and registers' harmonic sum are stored and updated dynamically as more data is inserted, resulting in fast estimate operations.
 
+
 ## High accuracy
+
 The cardinality-estimator-safe achieves high accuracy by using precise counting for small cardinality ranges and HyperLogLog++ with LogLog-Beta bias correction for larger ranges.
 This provides expected error rates as low as 0.02% for large cardinalities.
+
 
 ## Benchmarks
 
 Benchmarks are added to directly compare Cloudflare's `cardinality-estimator` with `cardinality-estimator-safe`. They are included beside Cloudflare's original benchmarks for context.
 
 To run benchmarks you first need to install `cargo-criterion` binary:
+
 ```shell
 cargo install cargo-criterion
 ```
 
 Then benchmarks with output format JSON to save results for further analysis:
+
 ```shell
 make bench
 ```
@@ -92,7 +162,9 @@ We're continuously working to make `cardinality-estimator` the fastest, lightest
 
 Benchmarks presented below are executed on Linux laptop with `13th Gen Intel(R) Core(TM) i7-13800H` processor and compiler flags set to `RUSTFLAGS=-C target-cpu=native`.
 
+
 ### Memory usage
+
 ![Cardinality Estimators Memory Usage](benches/memory_bytes.png)
 
 Table below compares memory usage of different cardinality estimators.
@@ -127,7 +199,9 @@ Note, that `hyperloglogplus` implementation has particularly high memory usage e
 | 524288      | 8 / 4092 / 7          | 40 / 4588 / 7              | 48 / 4096 / 1     | 128 / 4096 / 1            | 120 / 4096 / 1 | 160 / 195831 / 120 |
 | 1048576     | 8 / 4092 / 7          | 40 / 4588 / 7              | 48 / 4096 / 1     | 128 / 4096 / 1            | 120 / 4096 / 1 | 160 / 195831 / 120 |
 
+
 ### Insert performance
+
 ![Cardinality Estimators Insert Time](benches/insert_time.png)
 
 Table below represents insert time in nanoseconds per element.
@@ -159,7 +233,9 @@ Table below represents insert time in nanoseconds per element.
 |        524288 | 2.86                    | 2.86                         | 4.95                |                        6.63 |          5.2  | **2.3**           |
 |       1048576 | 2.7                     | 2.67                         | 4.96                |                        6.63 |          5.05 | **2.05**          |
 
+
 ### Estimate performance
+
 ![Cardinality Estimators Estimate Time](benches/estimate_time.png)
 
 Table below represents estimate time in nanoseconds per call.
@@ -194,7 +270,9 @@ Implementations `probabilistic-collections`, `hyperloglogplus` and `hyperloglogp
 |        524288 | **0.28**                | **0.28**                     |                2.23 |                     7755.7  |       7424.26 |           2189.29 |
 |       1048576 | **0.28**                | **0.28**                     |                2.23 |                     7734.45 |       7431.54 |           2191.21 |
 
+
 ### Error rate
+
 ![Cardinality Estimators Error Rate](benches/error_rate.png)
 
 Table below represents average absolute relative error across 100 runs of estimator on random elements at given cardinality.

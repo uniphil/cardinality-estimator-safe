@@ -8,7 +8,12 @@ use crate::small::Small;
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
 
-/// Sketch types supported by `CardinalityEstimator`
+/// Cardinality-estimating sketch data
+///
+/// Three different representations are used:
+/// - `Small` encodes zero, one, or two elements in a single `u64`
+/// - `Array` is a sparse representation for cardinalities up to 128
+/// - `Hll` is the actual HyperLogLog sketch, used for higher cardinalities
 #[repr(u8)]
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
@@ -36,10 +41,18 @@ pub(crate) trait SketchTrait<const P: usize, const W: usize> {
 }
 
 impl<const P: usize, const W: usize> Sketch<P, W> {
+    /// Insert a new set member to count
+    ///
+    /// See `Element` for options to accept your element's type
     pub fn insert(&mut self, element: Element<P, W>) {
         self.insert_encoded(element.0)
     }
 
+    /// Compute the current estimated cardinality
+    ///
+    /// This is a fast operation:
+    /// - Small and Array representations are extremely cheap to compute
+    /// - Hll updates computed state on insert, eliminating most of the work
     pub fn estimate(&self) -> usize {
         self.estimate_sketch()
     }
@@ -51,7 +64,10 @@ impl<const P: usize, const W: usize> Sketch<P, W> {
         }
     }
 
-    /// Merge cardinality estimators
+    /// Merge another sketch into this one
+    ///
+    /// Equivalent to inserting all elements from `rhs` into this sketch, but
+    /// much cheaper.
     #[inline]
     pub fn merge(&mut self, rhs: &Self) {
         match &rhs {
@@ -98,6 +114,7 @@ impl<const P: usize, const W: usize> Sketch<P, W> {
 }
 
 impl<const P: usize, const W: usize> Default for Sketch<P, W> {
+    /// Initialize an empty sketch with cardinality=0
     fn default() -> Self {
         Sketch::Small(Default::default())
     }
@@ -284,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        // Create a new CardinalityEstimator.
+        // Create a new Sketch.
         let mut e = Sketch::<12, 6>::default();
 
         // Ensure initial estimate is 0.
