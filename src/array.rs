@@ -6,7 +6,7 @@ use std::mem::size_of_val;
 use std::ops::Deref;
 
 use crate::hyperloglog::HyperLogLog;
-use crate::representation::{Representation, RepresentationTrait};
+use crate::sketch::{Sketch, SketchTrait};
 
 /// Maximum number of elements stored in array representation
 pub(crate) const MAX_CAPACITY: usize = 128;
@@ -86,23 +86,23 @@ impl<const P: usize, const W: usize> Array<P, W> {
     }
 }
 
-impl<const P: usize, const W: usize> RepresentationTrait<P, W> for Array<P, W> {
+impl<const P: usize, const W: usize> SketchTrait<P, W> for Array<P, W> {
     /// Insert encoded hash into `HyperLogLog` representation.
     #[inline]
-    fn insert_encoded_hash(&mut self, h: u32) -> Option<Representation<P, W>> {
+    fn insert_encoded_hash(&mut self, h: u32) -> Option<Sketch<P, W>> {
         if self.insert(h) {
             None
         } else {
             // upgrade from `Array` to `HyperLogLog` representation
             let mut hll = HyperLogLog::<P, W>::new(self);
             hll.insert_encoded_hash(h);
-            Some(Representation::Hll(hll))
+            Some(Sketch::Hll(hll))
         }
     }
 
     /// Return cardinality estimate of `Array` representation
     #[inline]
-    fn estimate(&self) -> usize {
+    fn estimate_sketch(&self) -> usize {
         self.0.len() - self.1
     }
 

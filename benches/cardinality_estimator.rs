@@ -4,7 +4,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 use std::hash::{BuildHasherDefault, Hash};
 
 use cardinality_estimator::CardinalityEstimator;
-use cardinality_estimator_safe::CardinalityEstimator as CardinalityEstimatorSafe;
+use cardinality_estimator_safe::{Element, Sketch};
 use criterion::measurement::WallTime;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, Throughput,
@@ -227,15 +227,15 @@ impl CardinalityEstimatorTrait<usize> for CardinalityEstimatorMut {
     }
 }
 
-struct CardinalityEstimatorSafeMut(CardinalityEstimatorSafe<usize>);
+struct CardinalityEstimatorSafeMut(Sketch);
 
 impl CardinalityEstimatorTrait<usize> for CardinalityEstimatorSafeMut {
     fn new() -> Self {
-        Self(CardinalityEstimatorSafe::new())
+        Self(Sketch::default())
     }
 
     fn insert(&mut self, item: &usize) {
-        self.0.insert(item);
+        self.0.insert(Element::from_hasher_default::<WyHash>(item));
     }
 
     fn estimate(&mut self) -> usize {

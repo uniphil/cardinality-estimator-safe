@@ -1,6 +1,6 @@
 [package]
 name = "cardinality-estimator-safe"
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
 authors = ["Alex Bocharov <bocharov.alexandr@gmail.com>", "phil"]
 description = "Estimate the cardinality of distinct elements in a stream or dataset with no unsafe code"
@@ -13,8 +13,8 @@ categories = ["algorithms", "data-structures"]
 
 [dependencies]
 enum_dispatch = "0.3.13"
+digest = { version = "0.10.7", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-wyhash = "0.5.0"
 
 [dev-dependencies]
 amadeus-streaming = "0.4.3"
@@ -31,6 +31,7 @@ sha2 = "0.10.9"
 serde_json = "1.0"
 tabled = "0.15.0"
 test-case = "3.3.1"
+wyhash = "0.5.0"
 
 [[bench]]
 name = "cardinality_estimator"
@@ -39,6 +40,7 @@ harness = false
 [features]
 default = []
 with_serde = ["serde"]
+with_digest = ["digest"]
 
 [profile.release]
 debug = 1
