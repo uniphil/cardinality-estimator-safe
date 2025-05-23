@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher, BuildHasher, BuildHasherDefault};
 #[cfg(feature = "with_digest")]
 use digest::Digest;
+use std::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Element<const P: usize = 12, const W: usize = 6>(pub(crate) u32);
@@ -18,7 +18,6 @@ impl<const P: usize, const W: usize> Element<P, W> {
     #[inline]
     pub fn from_hasher(element: impl Hash, hasher: impl BuildHasher) -> Self {
         Self::from_hashed(hasher.hash_one(&element))
-
     }
 
     #[inline]
@@ -34,13 +33,14 @@ impl<const P: usize, const W: usize> Element<P, W> {
     ) -> Self {
         let mut hasher = D::new_with_prefix(prefix);
         hasher.update(element);
-        let first8: [u8; 8] = hasher.finalize() // TODO: there's def a better way to split the first 8 from GenericArray with type checking
+        let first8: [u8; 8] = hasher
+            .finalize() // TODO: there's def a better way to split the first 8 from GenericArray with type checking
             .as_slice()
             .get(0..8)
             .expect("digest output must be at least 8 bytes")
             .try_into()
             .unwrap();
-        Self::from_hashed(u64::from_le_bytes(first8.into()))
+        Self::from_hashed(u64::from_le_bytes(first8))
     }
 
     #[cfg(feature = "with_digest")]
@@ -52,15 +52,14 @@ impl<const P: usize, const W: usize> Element<P, W> {
             .expect("digest output must be at least 8 bytes")
             .try_into()
             .unwrap();
-        Self::from_hashed(u64::from_le_bytes(first8.into()))
+        Self::from_hashed(u64::from_le_bytes(first8))
     }
 }
 
-
 #[cfg(test)]
 pub mod tests {
-    use wyhash::WyHash;
     use super::*;
+    use wyhash::WyHash;
 
     #[test]
     fn test_blah() {

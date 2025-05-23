@@ -1,10 +1,10 @@
-use std::ops::Deref;
 use enum_dispatch::enum_dispatch;
+use std::ops::Deref;
 
 use crate::array::Array;
+use crate::element::Element;
 use crate::hyperloglog::HyperLogLog;
 use crate::small::Small;
-use crate::element::Element;
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
 
@@ -116,11 +116,15 @@ mod tests {
 
         let mut estimator1: Sketch = Sketch::default();
         assert_eq!(estimator1.estimate(), 0);
-        estimator1.insert(Element::from_digest_with_prefix::<Sha256>("secret", "hello"));
+        estimator1.insert(Element::from_digest_with_prefix::<Sha256>(
+            "secret", "hello",
+        ));
         assert_eq!(estimator1.estimate(), 1);
 
         let mut estimator2: Sketch = Sketch::default();
-        estimator2.insert(Element::from_digest_with_prefix::<Sha256>("secret", "hello"));
+        estimator2.insert(Element::from_digest_with_prefix::<Sha256>(
+            "secret", "hello",
+        ));
         estimator1.merge(&estimator2);
         assert_eq!(estimator1.estimate(), 1);
 
@@ -155,10 +159,7 @@ mod tests {
     #[test_case(10_000 => "representation: Hll(estimate: 10417), avg_err: 0.0281")]
     #[test_case(100_000 => "representation: Hll(estimate: 93099), avg_err: 0.0351")]
     fn test_estimator_p10_w5(n: usize) -> String {
-        evaluate_sketch(
-            Sketch::<10, 5>::default(),
-            n,
-        )
+        evaluate_sketch(Sketch::<10, 5>::default(), n)
     }
 
     #[test_case(0 => "representation: Small(estimate: 0), avg_err: 0.0000")]
@@ -179,10 +180,7 @@ mod tests {
     #[test_case(10_000 => "representation: Hll(estimate: 10068), avg_err: 0.0087")]
     #[test_case(100_000 => "representation: Hll(estimate: 95628), avg_err: 0.0182")]
     fn test_estimator_p12_w6(n: usize) -> String {
-        evaluate_sketch(
-            Sketch::<12, 6>::default(),
-            n,
-        )
+        evaluate_sketch(Sketch::<12, 6>::default(), n)
     }
 
     #[test_case(0 => "representation: Small(estimate: 0), avg_err: 0.0000")]
@@ -203,16 +201,10 @@ mod tests {
     #[test_case(10_000 => "representation: Hll(estimate: 10007), avg_err: 0.0008")]
     #[test_case(100_000 => "representation: Hll(estimate: 100240), avg_err: 0.0011")]
     fn test_estimator_p18_w6(n: usize) -> String {
-        evaluate_sketch(
-            Sketch::<18, 6>::default(),
-            n,
-        )
+        evaluate_sketch(Sketch::<18, 6>::default(), n)
     }
 
-    fn evaluate_sketch<const P: usize, const W: usize>(
-        mut e: Sketch<P, W>,
-        n: usize,
-    ) -> String {
+    fn evaluate_sketch<const P: usize, const W: usize>(mut e: Sketch<P, W>, n: usize) -> String {
         let mut total_relative_error: f64 = 0.0;
         for i in 0..n {
             e.insert(Element::from_hasher_default::<WyHash>(&i));
@@ -310,5 +302,4 @@ mod tests {
         e.insert(Element::from_hasher_default::<WyHash>("test item 2"));
         assert_eq!(e.estimate(), 2);
     }
-
 }

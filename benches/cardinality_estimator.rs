@@ -4,7 +4,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 use std::hash::{BuildHasherDefault, Hash};
 
 use cardinality_estimator::CardinalityEstimator;
-use cardinality_estimator_safe::{Sketch, Element};
+use cardinality_estimator_safe::{Element, Sketch};
 use criterion::measurement::WallTime;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, Throughput,

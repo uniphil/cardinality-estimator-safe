@@ -1,6 +1,6 @@
 #[cfg(feature = "with_serde")]
 fn main() {
-    use cardinality_estimator_safe::{Sketch, Element};
+    use cardinality_estimator_safe::{Element, Sketch};
 
     use wyhash::WyHash;
     let mut estimator: Sketch<8, 5> = Sketch::default();

@@ -19,7 +19,7 @@ jobs:
         run: cargo check
 
       - name: Run cargo check with serde
-        run: cargo check --features with_serde
+        run: cargo check --features with_serde,with_digest
 
   test:
     name: Test Suite
@@ -37,7 +37,7 @@ jobs:
         run: cargo test
 
       - name: Run cargo test with serde
-        run: cargo test --features with_serde
+        run: cargo test --features with_serde,with_digest
 
   lints:
     name: Lints
@@ -59,4 +59,4 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Run cargo clippy with serde
-        run: cargo clippy --features with_serde -- -D warnings
+        run: cargo clippy --features with_serde,with_digest -- -D warnings

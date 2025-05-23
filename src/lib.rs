@@ -49,11 +49,11 @@
 //! The cardinality estimator stores data in one of three formats: `Small`, `Array`, and `HyperLogLog`.
 //! See corresponding modules (`small`, `array`, `hyperloglog`) for more details.
 mod array;
-pub mod sketch;
-mod hyperloglog;
 mod element;
+mod hyperloglog;
 #[cfg(feature = "with_serde")]
 mod serde;
+pub mod sketch;
 mod small;
 
 pub use element::Element;

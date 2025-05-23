@@ -169,7 +169,7 @@ impl<'de, const P: usize, const W: usize> Deserialize<'de> for HyperLogLog<P, W>
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{Sketch, Element};
+    use crate::{Element, Sketch};
     use test_case::test_case;
     use wyhash::WyHash;
 
@@ -186,41 +186,32 @@ pub mod tests {
             original_estimator.insert(Element::from_hasher_default::<WyHash>(&item));
         }
 
-        let serialized = serde_json::to_string(&original_estimator)
-            .expect("serialization failed");
+        let serialized = serde_json::to_string(&original_estimator).expect("serialization failed");
         assert!(
             !serialized.is_empty(),
             "serialized string should not be empty"
         );
 
-        let deserialized_estimator: Sketch =
-            serde_json::from_str::<Sketch>(&serialized)
-                .expect("deserialization failed")
-                .into();
+        let deserialized_estimator: Sketch = serde_json::from_str::<Sketch>(&serialized)
+            .expect("deserialization failed")
+            .into();
 
-        assert_eq!(
-            original_estimator,
-            deserialized_estimator
-        );
+        assert_eq!(original_estimator, deserialized_estimator);
 
         // run each case with postcard serialization as well
 
-        let postcard_serialized = postcard::to_allocvec(&original_estimator)
-            .expect("serialization failed");
+        let postcard_serialized =
+            postcard::to_allocvec(&original_estimator).expect("serialization failed");
         assert!(
             !postcard_serialized.is_empty(),
             "postcard_serialized bytes should not be empty"
         );
 
-        let postcard_estimator: Sketch =
-            postcard::from_bytes::<Sketch>(&postcard_serialized)
-                .expect("deserialization failed")
-                .into();
+        let postcard_estimator: Sketch = postcard::from_bytes::<Sketch>(&postcard_serialized)
+            .expect("deserialization failed")
+            .into();
 
-        assert_eq!(
-            original_estimator,
-            postcard_estimator
-        );
+        assert_eq!(original_estimator, postcard_estimator);
     }
 
     #[test]

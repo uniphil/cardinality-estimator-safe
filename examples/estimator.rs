@@ -1,4 +1,4 @@
-use cardinality_estimator_safe::{Sketch, Element};
+use cardinality_estimator_safe::{Element, Sketch};
 use wyhash::WyHash;
 
 fn main() {
