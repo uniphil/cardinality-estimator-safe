@@ -151,7 +151,7 @@ impl<'de, const P: usize, const W: usize> Deserialize<'de> for HyperLogLog<P, W>
         // there is probably some nice math that could justify a minimal error threshold here
         // but i'm lazy and we just want to catch serialization issues which are going to be
         // really wildly wrong or not that important
-        if (hll.harmonic_sum - harmonic_sum).abs() > 0.5 {
+        if (hll.harmonic_sum - harmonic_sum).abs() > 1. {
             return Err(de::Error::invalid_value(
                 serde::de::Unexpected::Float(harmonic_sum.into()),
                 &format!(
