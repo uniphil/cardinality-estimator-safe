@@ -74,7 +74,7 @@ impl<const P: usize, const W: usize> Array<P, W> {
 
     /// Create a new instance from a raw vec of items (without trailing zero-padding)
     ///
-    /// Caller is responsible for ensuring the vec lenght is >= 3 and <= MAX_CAPACITY
+    /// Caller is responsible for ensuring the vec length is >= 3 and <= MAX_CAPACITY
     #[inline]
     #[cfg(feature = "with_serde")]
     pub(crate) fn from_items(mut items: Vec<u32>) -> Array<P, W> {
