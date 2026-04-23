@@ -148,10 +148,18 @@ impl<'de, const P: usize, const W: usize> Deserialize<'de> for HyperLogLog<P, W>
             ));
         }
 
-        // there is probably some nice math that could justify a minimal error threshold here
-        // but i'm lazy and we just want to catch serialization issues which are going to be
-        // really wildly wrong or not that important
-        if (hll.harmonic_sum - harmonic_sum).abs() > 1. {
+        // TODO: just drop the stored estimates.
+        //
+        // UFOs (the primary (only?) user of this library) is insert and merge
+        // heavy, estimate-light. It's built entirely around doing LOTS of
+        // merges, and hits patterns that accumulate a lot of floating-point
+        // error.
+        //
+        // not sure how bad this is on other kinds of workloads, but it's the
+        // wrong trade-off here.
+        //
+        // until we fix that properly -- this value is just set *very* high.
+        if (hll.harmonic_sum - harmonic_sum).abs() > 10. {
             return Err(de::Error::invalid_value(
                 serde::de::Unexpected::Float(harmonic_sum.into()),
                 &format!(
